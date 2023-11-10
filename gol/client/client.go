@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/rpc"
 	"os"
-	"uk.ac.bris.cs/gameoflife/stubs"
+	"uk.ac.bris.cs/gameoflife/gol/stubs"
 )
 
 func makeCall(client *rpc.Client, message string) {
