@@ -1,54 +1,140 @@
 package server
 
 import (
-	"errors"
 	"flag"
-	"fmt"
-	"math/rand"
 	"net"
 	"net/rpc"
-	"time"
-	"uk.ac.bris.cs/gameoflife/gol/stubs"
+	"uk.ac.bris.cs/gameoflife/gol"
+	"uk.ac.bris.cs/gameoflife/util"
 )
 
-/** Super-Secret `reversing a string' method we can't allow clients to see. **/
-func ReverseString(s string, i int) string {
-	time.Sleep(time.Duration(rand.Intn(i)) * time.Second)
-	runes := []rune(s)
-	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
-		runes[i], runes[j] = runes[j], runes[i]
+// Create a RPC service that contains various
+type Server struct{}
+
+func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) {
+	turn := 0
+	// TODO: Execute all turns of the Game of Life.
+	for ; turn < req.Parameter.Turns; turn++ {
+		if req.Parameter.Threads == 1 {
+			req.World = nextState(req.Parameter, req.World, 0, req.Parameter.ImageHeight)
+		} else {
+			chans := make([]chan [][]byte, req.Parameter.Threads)
+			for i := 0; i < req.Parameter.Threads; i++ {
+				chans[i] = make(chan [][]byte)
+				a := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
+				b := (i + 1) * (req.Parameter.ImageHeight / req.Parameter.Threads)
+				if i == req.Parameter.Threads-1 {
+					b = req.Parameter.ImageHeight
+				}
+				worldCopy := copySlice(req.World) //to handle data race condition by passing a copy of world to goroutines
+				go workers(req.Parameter, worldCopy, chans[i], a, b)
+
+			}
+			//combine all the strips produced by workers
+			for i := 0; i < req.Parameter.Threads; i++ {
+				strip := <-chans[i]
+				startRow := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
+				for r, row := range strip {
+					req.World[startRow+r] = row
+				}
+			}
+		}
+		//c.events <- AliveCellsCount{CellsCount: len(calculateAliveCells(req.Parameter, req.World)), CompletedTurns: turn + 1}
+		//c.events <- TurnComplete{CompletedTurns: turn + 1}
 	}
-	return string(runes)
+	//send the finished world and AliveCells to respond
+	res.World = req.World
+	res.AliveCells = calculateAliveCells(req.Parameter, res.World)
+	res.CompletedTurns = turn
+
 }
-
-type SecretStringOperations struct{}
-
-func (s *SecretStringOperations) Reverse(req stubs.Request, res *stubs.Response) (err error) {
-	if req.Message == "" {
-		err = errors.New("A message must be specified")
-		return
+func nextState(p gol.Params, world [][]byte, start, end int) [][]byte {
+	// allocate space
+	nextWorld := make([][]byte, end-start)
+	for i := range nextWorld {
+		nextWorld[i] = make([]byte, p.ImageWidth)
 	}
 
+<<<<<<< Updated upstream
 	fmt.Println("Got Message: " + req.Message)
 	res.Message = ReverseString(req.Message, 10)
 	return
 }
 
-func (s *SecretStringOperations) FastReverse(req stubs.Request, res *stubs.Response) (err error) {
-	if req.Message == "" {
-		err = errors.New("A message must be specified")
-		return
+=======
+	directions := [8][2]int{
+		{-1, -1}, {-1, 0}, {-1, 1},
+		{0, -1}, {0, 1},
+		{1, -1}, {1, 0}, {1, 1},
 	}
 
-	res.Message = ReverseString(req.Message, 2)
-	return
+	for row := start; row < end; row++ {
+		for col := 0; col < p.ImageWidth; col++ {
+			// the alive must be set to 0 everytime when it comes to a different position
+			alive := 0
+			for _, dir := range directions {
+				// + imageHeight make sure the image is connected
+				newRow, newCol := (row+dir[0]+p.ImageHeight)%p.ImageHeight, (col+dir[1]+p.ImageWidth)%p.ImageWidth
+				if world[newRow][newCol] == 255 {
+					alive++
+				}
+			}
+			if world[row][col] == 255 {
+				if alive < 2 || alive > 3 {
+					nextWorld[row-start][col] = 0
+				} else {
+					nextWorld[row-start][col] = 255
+				}
+			} else if world[row][col] == 0 {
+				if alive == 3 {
+					nextWorld[row-start][col] = 255
+				} else {
+					nextWorld[row-start][col] = 0
+				}
+			}
+		}
+	}
+	return nextWorld
+}
+>>>>>>> Stashed changes
+
+func workers(p gol.Params, world [][]byte, result chan<- [][]byte, start, end int) {
+	worldPiece := nextState(p, world, start, end)
+	result <- worldPiece
+	close(result)
+}
+func copySlice(src [][]byte) [][]byte {
+	dst := make([][]byte, len(src))
+	for i := range src {
+		dst[i] = make([]byte, len(src[i]))
+		copy(dst[i], src[i])
+	}
+	return dst
 }
 
+func calculateAliveCells(p gol.Params, world [][]byte) []util.Cell {
+	var cs []util.Cell
+	for i, _ := range world {
+		for i2, v := range world[i] {
+			if v == 255 {
+				c := util.Cell{
+					X: i2,
+					Y: i,
+				}
+				cs = append(cs, c)
+			}
+		}
+	}
+	return cs
+}
 func main() {
-	pAddr := flag.String("port", "8030", "Port to listen on")
+	pAddr := flag.String("port", "8030", "port to listen on")
 	flag.Parse()
-	rand.Seed(time.Now().UnixNano())
-	rpc.Register(&SecretStringOperations{})
+	//what does register do???
+	err := rpc.Register(&Server{})
+	if err != nil {
+		return
+	}
 	listener, _ := net.Listen("tcp", ":"+*pAddr)
 	defer listener.Close()
 	rpc.Accept(listener)
