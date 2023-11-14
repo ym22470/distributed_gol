@@ -1,4 +1,4 @@
-package server
+package main
 
 import (
 	"flag"
@@ -11,7 +11,7 @@ import (
 // Create a RPC service that contains various
 type Server struct{}
 
-func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) {
+func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	turn := 0
 	// TODO: Execute all turns of the Game of Life.
 	for ; turn < req.Parameter.Turns; turn++ {
@@ -46,6 +46,7 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) {
 	res.World = req.World
 	res.AliveCells = calculateAliveCells(req.Parameter, res.World)
 	res.CompletedTurns = turn
+	return nil
 
 }
 func nextState(p gol.Params, world [][]byte, start, end int) [][]byte {
@@ -55,13 +56,6 @@ func nextState(p gol.Params, world [][]byte, start, end int) [][]byte {
 		nextWorld[i] = make([]byte, p.ImageWidth)
 	}
 
-<<<<<<< Updated upstream
-	fmt.Println("Got Message: " + req.Message)
-	res.Message = ReverseString(req.Message, 10)
-	return
-}
-
-=======
 	directions := [8][2]int{
 		{-1, -1}, {-1, 0}, {-1, 1},
 		{0, -1}, {0, 1},
@@ -96,7 +90,6 @@ func nextState(p gol.Params, world [][]byte, start, end int) [][]byte {
 	}
 	return nextWorld
 }
->>>>>>> Stashed changes
 
 func workers(p gol.Params, world [][]byte, result chan<- [][]byte, start, end int) {
 	worldPiece := nextState(p, world, start, end)

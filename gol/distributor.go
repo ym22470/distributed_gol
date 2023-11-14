@@ -1,7 +1,6 @@
 package gol
 
 import (
-	"flag"
 	"fmt"
 	"net/rpc"
 )
@@ -36,10 +35,9 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 func distributor(p Params, c distributorChannels) {
 	c.ioCommand <- ioInput
 	c.ioFilename <- fmt.Sprintf("%vx%v", p.ImageHeight, p.ImageWidth)
-	server := flag.String("server", "127.0.0.1:8030", "IP:port string to connect to as server")
-	flag.Parse()
+	server := "127.0.0.1:8030"
 	//create a client that dials to the tcp port
-	client, _ := rpc.Dial("tcp", *server)
+	client, _ := rpc.Dial("tcp", server)
 	//close dial when everything is excuted
 	defer client.Close()
 
