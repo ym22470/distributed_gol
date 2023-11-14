@@ -35,7 +35,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 func distributor(p Params, c distributorChannels) {
 	c.ioCommand <- ioInput
 	c.ioFilename <- fmt.Sprintf("%vx%v", p.ImageHeight, p.ImageWidth)
-	server := "127.0.0.1:8030"
+	server := "172.31.87.77:8030"
 	//create a client that dials to the tcp port
 	client, _ := rpc.Dial("tcp", server)
 	//close dial when everything is excuted
