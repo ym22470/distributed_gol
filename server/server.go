@@ -4,6 +4,7 @@ import (
 	"flag"
 	"net"
 	"net/rpc"
+
 	"uk.ac.bris.cs/gameoflife/gol"
 	"uk.ac.bris.cs/gameoflife/util"
 )
@@ -12,6 +13,9 @@ import (
 type Server struct{}
 
 func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
+
+	// var mutex sync.Mutex
+
 	turn := 0
 	// TODO: Execute all turns of the Game of Life.
 	for ; turn < req.Parameter.Turns; turn++ {
@@ -26,7 +30,8 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 				if i == req.Parameter.Threads-1 {
 					b = req.Parameter.ImageHeight
 				}
-				worldCopy := copySlice(req.World) //to handle data race condition by passing a copy of world to goroutines
+				//to handle data race condition by passing a copy of world to goroutines
+				worldCopy := copySlice(req.World)
 				go workers(req.Parameter, worldCopy, chans[i], a, b)
 
 			}
@@ -39,8 +44,8 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 				}
 			}
 		}
-		//c.events <- AliveCellsCount{CellsCount: len(calculateAliveCells(req.Parameter, req.World)), CompletedTurns: turn + 1}
-		//c.events <- TurnComplete{CompletedTurns: turn + 1}
+		res.CellCount = len(calculateAliveCells(req.Parameter, req.World))
+		res.TurnCount = turn
 	}
 	//send the finished world and AliveCells to respond
 	res.World = req.World
@@ -106,24 +111,20 @@ func copySlice(src [][]byte) [][]byte {
 }
 
 func calculateAliveCells(p gol.Params, world [][]byte) []util.Cell {
-	var cs []util.Cell
-	for i, _ := range world {
-		for i2, v := range world[i] {
-			if v == 255 {
-				c := util.Cell{
-					X: i2,
-					Y: i,
-				}
-				cs = append(cs, c)
+	var aliveCell []util.Cell
+	for row := 0; row < p.ImageHeight; row++ {
+		for col := 0; col < p.ImageWidth; col++ {
+			if world[row][col] == 255 {
+				aliveCell = append(aliveCell, util.Cell{X: col, Y: row})
 			}
 		}
 	}
-	return cs
+	return aliveCell
 }
+
 func main() {
 	pAddr := flag.String("port", "8030", "port to listen on")
 	flag.Parse()
-	//what does register do???
 	err := rpc.Register(&Server{})
 	if err != nil {
 		return

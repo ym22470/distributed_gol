@@ -10,6 +10,8 @@ type Response struct {
 	World          [][]byte
 	AliveCells     []util.Cell
 	CompletedTurns int
+	CellCount      int
+	TurnCount      int
 }
 
 type Request struct {
