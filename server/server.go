@@ -61,10 +61,8 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 }
 
 func (s *Server) CountAliveCell(req gol.Request, res *gol.Response) error {
-	mutex.Lock()
 	res.Turns = s.Turn
 	res.CellCount = s.CellCount
-	mutex.Unlock()
 	return nil
 }
 
