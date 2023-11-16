@@ -5,13 +5,14 @@ import (
 )
 
 var ProcessGol = "Server.ProcessWorld"
+var AliveCells = "Server.CountAliveCell"
 
 type Response struct {
 	World          [][]byte
 	AliveCells     []util.Cell
 	CompletedTurns int
 	CellCount      int
-	TurnCount      int
+	Turns          int
 }
 
 type Request struct {

@@ -10,12 +10,16 @@ import (
 )
 
 // Create a RPC service that contains various
-type Server struct{}
+type Server struct {
+	Turn      int
+	CellCount int
+}
 
 func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 
+	s.Turn = 0
+	s.CellCount = 0
 	// var mutex sync.Mutex
-
 	turn := 0
 	// TODO: Execute all turns of the Game of Life.
 	for ; turn < req.Parameter.Turns; turn++ {
@@ -44,16 +48,22 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 				}
 			}
 		}
-		res.CellCount = len(calculateAliveCells(req.Parameter, req.World))
-		res.TurnCount = turn
+		s.CellCount = len(calculateAliveCells(req.Parameter, req.World))
+		s.Turn++
 	}
 	//send the finished world and AliveCells to respond
 	res.World = req.World
-	res.AliveCells = calculateAliveCells(req.Parameter, res.World)
+	res.AliveCells = calculateAliveCells(req.Parameter, req.World)
 	res.CompletedTurns = turn
 	return nil
-
 }
+
+func (s *Server) CountAliveCell(req gol.Request, res *gol.Response) error {
+	res.Turns = s.Turn
+	res.CellCount = s.CellCount
+	return nil
+}
+
 func nextState(p gol.Params, world [][]byte, start, end int) [][]byte {
 	// allocate space
 	nextWorld := make([][]byte, end-start)

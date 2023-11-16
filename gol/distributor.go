@@ -19,20 +19,20 @@ type distributorChannels struct {
 func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannels) {
 	request := Request{World: world, Parameter: p}
 	response := new(Response)
-	client.Call(ProcessGol, request, response)
 
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
+	// responseCell := new(Response)
 	go func() {
-		request1 := Request{World: world, Parameter: p}
-		response1 := new(Response)
 		for range ticker.C {
-			fmt.Println("here")
-			client.Call(ProcessGol, request1, response1)
-			c.events <- AliveCellsCount{CompletedTurns: response1.TurnCount, CellsCount: response1.CellCount}
+			requestCell := Request{World: world, Parameter: p}
+			responseCell := new(Response)
+			client.Call(AliveCells, requestCell, responseCell)
+			// fmt.Println("The turn is now: ", responseCell.Turns)
+			c.events <- AliveCellsCount{CompletedTurns: responseCell.Turns, CellsCount: responseCell.CellCount}
 		}
 	}()
-
+	client.Call(ProcessGol, request, response)
 	//report the final state of the world
 	c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
 	// Make sure that the Io has finished any output before exiting.
@@ -45,14 +45,6 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 	// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
 	close(c.events)
 }
-
-// func cellCount(client *rpc.Client, world [][]byte, p Params, c distributorChannels) {
-// 	request := Request{World: world, Parameter: p}
-// 	response := new(Response)
-// 	client.Call(ProcessGol, request, response)
-// 	c.events <- AliveCellsCount{CompletedTurns: response.CompletedTurns, CellsCount: response.CellCount}
-// 	close(c.events)
-// }
 
 func distributor(p Params, c distributorChannels) {
 	c.ioCommand <- ioInput
@@ -77,14 +69,5 @@ func distributor(p Params, c distributorChannels) {
 			world[y][x] = <-c.ioInput
 		}
 	}
-
-	// ticker := time.NewTicker(2 * time.Second)
-	// defer ticker.Stop()
-	// go func() {
-	// 	for range ticker.C {
-	// 		cellCount(client, world, p, c)
-	// 	}
-	// }()
-
 	makeCall(client, world, p, c)
 }
