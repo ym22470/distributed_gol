@@ -19,17 +19,16 @@ type distributorChannels struct {
 func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannels) {
 	request := Request{World: world, Parameter: p}
 	response := new(Response)
-
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	// responseCell := new(Response)
 	go func() {
 		for range ticker.C {
-			requestCell := Request{World: world, Parameter: p}
-			responseCell := new(Response)
-			client.Call(AliveCells, requestCell, responseCell)
+			//requestCell := Request{World: world, Parameter: p}
+			//responseCell := new(Response)
+			client.Call(AliveCells, request, response)
 			// fmt.Println("The turn is now: ", responseCell.Turns)
-			c.events <- AliveCellsCount{CompletedTurns: responseCell.Turns, CellsCount: responseCell.CellCount}
+			c.events <- AliveCellsCount{CompletedTurns: response.Turns, CellsCount: response.CellCount}
 		}
 	}()
 	client.Call(ProcessGol, request, response)
@@ -52,11 +51,13 @@ func distributor(p Params, c distributorChannels) {
 
 	// Do remember to modify this ip address
 	server := "127.0.0.1:8030"
+	// server := "54.221.38.230:8030"
 	//create a client that dials to the tcp port
 	client, _ := rpc.Dial("tcp", server)
 	//close dial when everything is excuted
 	defer client.Close()
 
+	//fmt.Println("create a new world here")
 	//create an empty world slice
 	world := make([][]byte, p.ImageHeight)
 	for i := range world {

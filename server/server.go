@@ -4,6 +4,7 @@ import (
 	"flag"
 	"net"
 	"net/rpc"
+	"sync"
 
 	"uk.ac.bris.cs/gameoflife/gol"
 	"uk.ac.bris.cs/gameoflife/util"
@@ -15,12 +16,11 @@ type Server struct {
 	CellCount int
 }
 
-func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
+var mutex sync.Mutex
 
-	s.Turn = 0
-	s.CellCount = 0
-	// var mutex sync.Mutex
+func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	turn := 0
+
 	// TODO: Execute all turns of the Game of Life.
 	for ; turn < req.Parameter.Turns; turn++ {
 		if req.Parameter.Threads == 1 {
@@ -48,8 +48,10 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 				}
 			}
 		}
+		mutex.Lock()
 		s.CellCount = len(calculateAliveCells(req.Parameter, req.World))
 		s.Turn++
+		mutex.Unlock()
 	}
 	//send the finished world and AliveCells to respond
 	res.World = req.World
@@ -59,8 +61,10 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 }
 
 func (s *Server) CountAliveCell(req gol.Request, res *gol.Response) error {
+	mutex.Lock()
 	res.Turns = s.Turn
 	res.CellCount = s.CellCount
+	mutex.Unlock()
 	return nil
 }
 
