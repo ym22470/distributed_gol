@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/rpc"
 	"time"
+	"sync"
 )
 
 type distributorChannels struct {
@@ -17,6 +18,7 @@ type distributorChannels struct {
 }
 
 func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannels) {
+	var mutex sync.Mutex
 	request := Request{World: world, Parameter: p}
 	response := new(Response)
 	ticker := time.NewTicker(2 * time.Second)
@@ -26,14 +28,18 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 		for range ticker.C {
 			//requestCell := Request{World: world, Parameter: p}
 			//responseCell := new(Response)
+			mutex.Lock()
 			client.Call(AliveCells, request, response)
 			// fmt.Println("The turn is now: ", responseCell.Turns)
 			c.events <- AliveCellsCount{CompletedTurns: response.Turns, CellsCount: response.CellCount}
+			mutex.Unlock()
 		}
 	}()
 	client.Call(ProcessGol, request, response)
 	//report the final state of the world
+	mutex.Lock()
 	c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
+	mutex.Unlock()
 	// Make sure that the Io has finished any output before exiting.
 
 	c.ioCommand <- ioCheckIdle
@@ -50,8 +56,9 @@ func distributor(p Params, c distributorChannels) {
 	c.ioFilename <- fmt.Sprintf("%vx%v", p.ImageHeight, p.ImageWidth)
 
 	// Do remember to modify this ip address
-	server := "127.0.0.1:8030"
-//	 server := "107.21.188.45:8030"
+//	server := "127.0.0.1:8030"
+	 server := "3.80.132.4:8030"
+
 	//create a client that dials to the tcp port
 	client, _ := rpc.Dial("tcp", server)
 	//close dial when everything is excuted
