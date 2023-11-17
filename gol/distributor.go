@@ -51,7 +51,7 @@ func distributor(p Params, c distributorChannels) {
 
 	// Do remember to modify this ip address
 	server := "127.0.0.1:8030"
-	// server := "54.221.38.230:8030"
+//	 server := "107.21.188.45:8030"
 	//create a client that dials to the tcp port
 	client, _ := rpc.Dial("tcp", server)
 	//close dial when everything is excuted
