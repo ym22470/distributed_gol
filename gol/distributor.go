@@ -35,31 +35,33 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 			mutex.Unlock()
 		}
 	}()
-	client.Call(ProcessGol, request, response)
 
+	//Keypress function
 	pasued := false
 	resume := make(chan bool)
 	quit := make(chan bool)
 	go func() {
+		//fmt.Println("here in s")
 		for {
 			select {
 			case key := <-c.key:
 				switch key {
 				case 's':
+					//fmt.Println("here in s")
 					c.ioCommand <- ioOutput
-					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth)
+					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, p.Turns)
 					for y := 0; y < p.ImageHeight; y++ {
 						for x := 0; x < p.ImageWidth; x++ {
-							c.ioOutput <- world[y][x]
+							c.ioOutput <- response.World[y][x]
 						}
 					}
-					//fmt.Println("here in s")
 				case 'q':
+					//fmt.Println("here in q")
 					c.ioCommand <- ioOutput
-					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth)
+					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, p.Turns)
 					for y := 0; y < p.ImageHeight; y++ {
 						for x := 0; x < p.ImageWidth; x++ {
-							c.ioOutput <- world[y][x]
+							c.ioOutput <- response.World[y][x]
 						}
 					}
 					c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
@@ -78,11 +80,30 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 					}
 				}
 			case <-quit:
+				//fmt.Println("here in s")
 				return
 			}
 
 		}
 	}()
+	client.Call(ProcessGol, request, response)
+
+	//send the content of world and receive on the other side(writePgm) concurrently
+	c.ioCommand <- ioOutput
+	if p.Turns == 0 {
+		c.ioFilename <- fmt.Sprintf("%dx%dx0", p.ImageHeight, p.ImageWidth)
+	} else if p.Threads == 1 {
+		c.ioFilename <- fmt.Sprintf("%dx%dx%d", p.ImageHeight, p.ImageWidth, p.Turns)
+	} else {
+		c.ioFilename <- fmt.Sprintf("%dx%dx%d-%d", p.ImageHeight, p.ImageWidth, p.Turns, p.Threads)
+	}
+	//send the completed world to ioOutput c
+	for i := 0; i < p.ImageWidth; i++ {
+		for j := 0; j < p.ImageHeight; j++ {
+			c.ioOutput <- response.World[i][j]
+		}
+	}
+
 	//report the final state of the world
 	mutex.Lock()
 	c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
@@ -103,8 +124,8 @@ func distributor(p Params, c distributorChannels) {
 	c.ioFilename <- fmt.Sprintf("%vx%v", p.ImageHeight, p.ImageWidth)
 
 	// Do remember to modify this ip address
-	//	server := "127.0.0.1:8030"
-	server := "3.80.132.4:8030"
+	server := "127.0.0.1:8030"
+	//server := "3.80.132.4:8030"
 
 	//create a client that dials to the tcp port
 	client, _ := rpc.Dial("tcp", server)
