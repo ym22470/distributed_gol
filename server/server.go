@@ -15,7 +15,6 @@ type Server struct {
 	CellCount int
 }
 
-
 func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	turn := 0
 
@@ -61,6 +60,10 @@ func (s *Server) CountAliveCell(req gol.Request, res *gol.Response) error {
 	res.CellCount = s.CellCount
 	return nil
 }
+
+//func (s *Server) Pause(){
+//
+//}
 
 func nextState(p gol.Params, world [][]byte, start, end int) [][]byte {
 	// allocate space

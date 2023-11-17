@@ -3,8 +3,8 @@ package gol
 import (
 	"fmt"
 	"net/rpc"
-	"time"
 	"sync"
+	"time"
 )
 
 type distributorChannels struct {
@@ -36,6 +36,53 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 		}
 	}()
 	client.Call(ProcessGol, request, response)
+
+	pasued := false
+	resume := make(chan bool)
+	quit := make(chan bool)
+	go func() {
+		for {
+			select {
+			case key := <-c.key:
+				switch key {
+				case 's':
+					c.ioCommand <- ioOutput
+					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth)
+					for y := 0; y < p.ImageHeight; y++ {
+						for x := 0; x < p.ImageWidth; x++ {
+							c.ioOutput <- world[y][x]
+						}
+					}
+					//fmt.Println("here in s")
+				case 'q':
+					c.ioCommand <- ioOutput
+					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth)
+					for y := 0; y < p.ImageHeight; y++ {
+						for x := 0; x < p.ImageWidth; x++ {
+							c.ioOutput <- world[y][x]
+						}
+					}
+					c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
+					c.ioCommand <- ioCheckIdle
+					<-c.ioIdle
+					c.events <- StateChange{response.CompletedTurns, Quitting}
+					quit <- true
+				case 'p':
+					pasued = !pasued
+					if pasued {
+						c.events <- StateChange{response.CompletedTurns, Paused}
+					} else {
+						fmt.Println("Continuing")
+						c.events <- StateChange{response.CompletedTurns, Executing}
+						resume <- true
+					}
+				}
+			case <-quit:
+				return
+			}
+
+		}
+	}()
 	//report the final state of the world
 	mutex.Lock()
 	c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
@@ -56,8 +103,8 @@ func distributor(p Params, c distributorChannels) {
 	c.ioFilename <- fmt.Sprintf("%vx%v", p.ImageHeight, p.ImageWidth)
 
 	// Do remember to modify this ip address
-//	server := "127.0.0.1:8030"
-	 server := "3.80.132.4:8030"
+	//	server := "127.0.0.1:8030"
+	server := "3.80.132.4:8030"
 
 	//create a client that dials to the tcp port
 	client, _ := rpc.Dial("tcp", server)
