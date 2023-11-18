@@ -17,7 +17,6 @@ type Server struct {
 
 func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	turn := 0
-
 	// TODO: Execute all turns of the Game of Life.
 	for ; turn < req.Parameter.Turns; turn++ {
 		if req.Parameter.Threads == 1 {
@@ -45,6 +44,7 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 				}
 			}
 		}
+		//count the number of cells and turns
 		s.CellCount = len(calculateAliveCells(req.Parameter, req.World))
 		s.Turn++
 	}

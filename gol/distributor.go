@@ -49,7 +49,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 				case 's':
 					//fmt.Println("here in s")
 					c.ioCommand <- ioOutput
-					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, p.Turns)
+					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, response.Turns)
 					for y := 0; y < p.ImageHeight; y++ {
 						for x := 0; x < p.ImageWidth; x++ {
 							c.ioOutput <- response.World[y][x]
@@ -58,7 +58,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 				case 'q':
 					//fmt.Println("here in q")
 					c.ioCommand <- ioOutput
-					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, p.Turns)
+					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, response.Turns)
 					for y := 0; y < p.ImageHeight; y++ {
 						for x := 0; x < p.ImageWidth; x++ {
 							c.ioOutput <- response.World[y][x]
