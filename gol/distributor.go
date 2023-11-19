@@ -88,6 +88,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 							c.ioOutput <- response.World[y][x]
 						}
 					}
+					// If the K is called at first, the server will be shut down immediately
 					requestkey = Request{K: true}
 					kill = true
 					client.Call(Key, requestkey, response)
@@ -107,6 +108,8 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 
 	//send the content of world and receive on the other side(writePgm) concurrently
 	c.ioCommand <- ioOutput
+	// Since the output here is only required when the turns are ran out, so doesn't need the ticker anymore
+	pasued = true
 	if p.Turns == 0 {
 		c.ioFilename <- fmt.Sprintf("%dx%dx0", p.ImageHeight, p.ImageWidth)
 	} else if p.Threads == 1 {
@@ -141,8 +144,8 @@ func distributor(p Params, c distributorChannels) {
 	c.ioFilename <- fmt.Sprintf("%vx%v", p.ImageHeight, p.ImageWidth)
 
 	// Do remember to modify this ip address
-	server := "127.0.0.1:8030"
-	//server := "3.80.132.4:8030"
+	//	server := "127.0.0.1:8030"
+	server := "54.224.85.190:8030"
 
 	//create a client that dials to the tcp port
 	client, _ := rpc.Dial("tcp", server)
