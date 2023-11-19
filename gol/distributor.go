@@ -29,7 +29,9 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 	// responseCell := new(Response)
 	go func() {
 		for range ticker.C {
+			mutex.Lock()
 			if !pasued && !kill {
+				mutex.Unlock()
 				//requestCell := Request{World: world, Parameter: p}
 				//responseCell := new(Response)
 				mutex.Lock()
@@ -38,6 +40,8 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 				c.events <- AliveCellsCount{CompletedTurns: response.Turns, CellsCount: response.CellCount}
 				mutex.Unlock()
 				//<-resume
+			} else {
+				mutex.Unlock()
 			}
 
 		}
@@ -70,7 +74,9 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 					quit <- true
 				case 'p':
 					requestkey := Request{P: true}
+					mutex.Lock()
 					pasued = !pasued
+					mutex.Unlock()
 					client.Call(Key, requestkey, response)
 					if pasued {
 						c.events <- StateChange{response.Turns, Paused}
@@ -144,8 +150,8 @@ func distributor(p Params, c distributorChannels) {
 	c.ioFilename <- fmt.Sprintf("%vx%v", p.ImageHeight, p.ImageWidth)
 
 	// Do remember to modify this ip address
-	//	server := "127.0.0.1:8030"
-	server := "54.224.85.190:8030"
+	server := "127.0.0.1:8030"
+	//server := "54.224.85.190:8030"
 
 	//create a client that dials to the tcp port
 	client, _ := rpc.Dial("tcp", server)
