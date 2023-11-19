@@ -20,14 +20,15 @@ type distributorChannels struct {
 func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannels) {
 	//resume := make(chan bool)
 	var mutex sync.Mutex
-	request := Request{World: world, Parameter: p, Pause: false}
+	pasued := false
+	request := Request{World: world, Parameter: p}
 	response := new(Response)
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	// responseCell := new(Response)
 	go func() {
 		for range ticker.C {
-			if !response.Pause {
+			if !pasued {
 				//requestCell := Request{World: world, Parameter: p}
 				//responseCell := new(Response)
 				mutex.Lock()
@@ -41,18 +42,16 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 		}
 	}()
 
-	//Keypress function
-	//pasued := false
 	//resume := make(chan bool)
 	quit := make(chan bool)
 	go func() {
-		//fmt.Println("here in s")
 		for {
 			select {
 			case key := <-c.key:
 				switch key {
 				case 's':
-					//fmt.Println("here in s")
+					requestkey := Request{S: true}
+					client.Call(Key, requestkey, response)
 					c.ioCommand <- ioOutput
 					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, response.Turns)
 					for y := 0; y < p.ImageHeight; y++ {
@@ -61,7 +60,9 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 						}
 					}
 				case 'q':
-					//fmt.Println("here in q")
+					requestkey := Request{Q: true}
+					// TODO: q function
+					client.Call(Key, requestkey, response)
 					c.ioCommand <- ioOutput
 					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, response.Turns)
 					for y := 0; y < p.ImageHeight; y++ {
@@ -75,25 +76,19 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 					c.events <- StateChange{response.Turns, Quitting}
 					quit <- true
 				case 'p':
-					fmt.Println("haha")
-					mutex.Lock()
-					client.Call(Pause, request, response)
-					fmt.Println("haha")
-					mutex.Unlock()
-					//pasued = !pasued
-					if response.Pause {
-						fmt.Println("Paused,press p to resume")
+					requestkey := Request{P: true}
+					pasued = !pasued
+					client.Call(Key, requestkey, response)
+					if pasued {
 						c.events <- StateChange{response.Turns, Paused}
-					} else if !response.Pause {
+					} else {
 						fmt.Println("Continuing")
 						c.events <- StateChange{response.Turns, Executing}
-						//resume <- true
 					}
 				case 'k':
 
 				}
 			case <-quit:
-				//fmt.Println("here in s")
 				return
 			}
 		}

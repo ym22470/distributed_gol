@@ -2,9 +2,9 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"net"
 	"net/rpc"
+
 	"uk.ac.bris.cs/gameoflife/gol"
 	"uk.ac.bris.cs/gameoflife/util"
 )
@@ -15,16 +15,17 @@ type Server struct {
 	CellCount int
 	Resume    chan bool
 	Pause     bool
+	World     [][]byte
 }
 
 func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	turn := 0
+	s.Turn = 0
+	s.Resume = make(chan bool)
 	// TODO: Execute all turns of the Game of Life.
 	for ; turn < req.Parameter.Turns; turn++ {
 		if s.Pause {
-			fmt.Println("paused")
 			<-s.Resume
-			fmt.Println("resumed")
 		}
 		if req.Parameter.Threads == 1 {
 			req.World = nextState(req.Parameter, req.World, 0, req.Parameter.ImageHeight)
@@ -55,6 +56,7 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 		//count the number of cells and turns
 		s.CellCount = len(calculateAliveCells(req.Parameter, req.World))
 		s.Turn++
+		s.World = req.World
 	}
 	//send the finished world and AliveCells to respond
 	res.World = req.World
@@ -70,21 +72,16 @@ func (s *Server) CountAliveCell(req gol.Request, res *gol.Response) error {
 	return nil
 }
 
-func (s *Server) PauseGol(PauseReq gol.Request, PauseRes *gol.Response) error {
-	//PauseRes.TestStr = "initialise"
-	fmt.Println("haha")
-	s.Pause = !s.Pause
-	PauseRes.Pause = s.Pause
-
-	fmt.Println("hoho")
-	if !s.Pause {
-		fmt.Println("if statement")
-		s.Resume <- true
-		fmt.Println("sent to Resume")
-	} else {
-		fmt.Println("else statement")
+func (s *Server) KeyGol(req gol.Request, res *gol.Response) error {
+	if req.S {
+		res.Turns = s.Turn
+		res.World = s.World
+	} else if req.P {
+		s.Pause = !s.Pause
+		if s.Pause != true {
+			s.Resume <- true
+		}
 	}
-	fmt.Println("finished")
 	return nil
 }
 
