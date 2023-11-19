@@ -2,9 +2,9 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net"
 	"net/rpc"
-
 	"uk.ac.bris.cs/gameoflife/gol"
 	"uk.ac.bris.cs/gameoflife/util"
 )
@@ -13,12 +13,19 @@ import (
 type Server struct {
 	Turn      int
 	CellCount int
+	Resume    chan bool
+	Pause     bool
 }
 
 func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	turn := 0
 	// TODO: Execute all turns of the Game of Life.
 	for ; turn < req.Parameter.Turns; turn++ {
+		if s.Pause {
+			fmt.Println("paused")
+			<-s.Resume
+			fmt.Println("resumed")
+		}
 		if req.Parameter.Threads == 1 {
 			req.World = nextState(req.Parameter, req.World, 0, req.Parameter.ImageHeight)
 		} else {
@@ -61,9 +68,24 @@ func (s *Server) CountAliveCell(req gol.Request, res *gol.Response) error {
 	return nil
 }
 
-//func (s *Server) Pause(){
-//
-//}
+func (s *Server) PauseGol(PauseReq gol.Request, PauseRes *gol.Response) error {
+	//PauseRes.TestStr = "initialise"
+	fmt.Println("haha")
+	PauseRes.Pause = !s.Pause
+	s.Pause = !s.Pause
+	fmt.Println("hoho")
+	if !s.Pause {
+		fmt.Println("if statement")
+		//blocked here for some reason
+		s.Resume <- true
+		fmt.Println("sent to Resume")
+	} else {
+		fmt.Println("else statement")
+	}
+	fmt.Println("hoho")
+	//PauseRes.TestStr = "complete"
+	return nil
+}
 
 func nextState(p gol.Params, world [][]byte, start, end int) [][]byte {
 	// allocate space

@@ -6,6 +6,7 @@ import (
 
 var ProcessGol = "Server.ProcessWorld"
 var AliveCells = "Server.CountAliveCell"
+var Pause = "Server.PauseGol"
 
 type Response struct {
 	World          [][]byte
@@ -13,9 +14,12 @@ type Response struct {
 	CompletedTurns int
 	CellCount      int
 	Turns          int
+	Pause          bool
+	//TestStr        string
 }
 
 type Request struct {
 	World     [][]byte
 	Parameter Params
+	Pause     bool
 }

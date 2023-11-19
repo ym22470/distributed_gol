@@ -19,26 +19,28 @@ type distributorChannels struct {
 
 func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannels) {
 	var mutex sync.Mutex
-	request := Request{World: world, Parameter: p}
+	request := Request{World: world, Parameter: p, Pause: false}
 	response := new(Response)
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	// responseCell := new(Response)
 	go func() {
 		for range ticker.C {
-			//requestCell := Request{World: world, Parameter: p}
-			//responseCell := new(Response)
-			mutex.Lock()
-			client.Call(AliveCells, request, response)
-			// fmt.Println("The turn is now: ", responseCell.Turns)
-			c.events <- AliveCellsCount{CompletedTurns: response.Turns, CellsCount: response.CellCount}
-			mutex.Unlock()
+			if !response.Pause {
+				//requestCell := Request{World: world, Parameter: p}
+				//responseCell := new(Response)
+				mutex.Lock()
+				client.Call(AliveCells, request, response)
+				// fmt.Println("The turn is now: ", responseCell.Turns)
+				c.events <- AliveCellsCount{CompletedTurns: response.Turns, CellsCount: response.CellCount}
+				mutex.Unlock()
+			}
 		}
 	}()
 
 	//Keypress function
-	pasued := false
-	resume := make(chan bool)
+	//pasued := false
+	//resume := make(chan bool)
 	quit := make(chan bool)
 	go func() {
 		//fmt.Println("here in s")
@@ -67,23 +69,30 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 					c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
 					c.ioCommand <- ioCheckIdle
 					<-c.ioIdle
-					c.events <- StateChange{response.CompletedTurns, Quitting}
+					c.events <- StateChange{response.Turns, Quitting}
 					quit <- true
 				case 'p':
-					pasued = !pasued
-					if pasued {
-						c.events <- StateChange{response.CompletedTurns, Paused}
+					fmt.Println("haha")
+					//mutex.Lock()
+					client.Call(Pause, request, response)
+					fmt.Println("haha")
+					//mutex.Unlock()
+					//pasued = !pasued
+					if response.Pause {
+						fmt.Println("Paused,press p to resume")
+						c.events <- StateChange{response.Turns, Paused}
 					} else {
 						fmt.Println("Continuing")
-						c.events <- StateChange{response.CompletedTurns, Executing}
-						resume <- true
+						c.events <- StateChange{response.Turns, Executing}
+						//resume <- true
 					}
+				case 'k':
+
 				}
 			case <-quit:
 				//fmt.Println("here in s")
 				return
 			}
-
 		}
 	}()
 	client.Call(ProcessGol, request, response)
