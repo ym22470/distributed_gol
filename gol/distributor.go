@@ -18,6 +18,7 @@ type distributorChannels struct {
 }
 
 func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannels) {
+	//resume := make(chan bool)
 	var mutex sync.Mutex
 	request := Request{World: world, Parameter: p, Pause: false}
 	response := new(Response)
@@ -34,7 +35,9 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 				// fmt.Println("The turn is now: ", responseCell.Turns)
 				c.events <- AliveCellsCount{CompletedTurns: response.Turns, CellsCount: response.CellCount}
 				mutex.Unlock()
+				//<-resume
 			}
+
 		}
 	}()
 
@@ -73,15 +76,15 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 					quit <- true
 				case 'p':
 					fmt.Println("haha")
-					//mutex.Lock()
+					mutex.Lock()
 					client.Call(Pause, request, response)
 					fmt.Println("haha")
-					//mutex.Unlock()
+					mutex.Unlock()
 					//pasued = !pasued
 					if response.Pause {
 						fmt.Println("Paused,press p to resume")
 						c.events <- StateChange{response.Turns, Paused}
-					} else {
+					} else if !response.Pause {
 						fmt.Println("Continuing")
 						c.events <- StateChange{response.Turns, Executing}
 						//resume <- true

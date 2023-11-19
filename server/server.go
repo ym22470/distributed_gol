@@ -51,6 +51,7 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 				}
 			}
 		}
+		//fmt.Println("working")
 		//count the number of cells and turns
 		s.CellCount = len(calculateAliveCells(req.Parameter, req.World))
 		s.Turn++
@@ -59,6 +60,7 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	res.World = req.World
 	res.AliveCells = calculateAliveCells(req.Parameter, req.World)
 	res.CompletedTurns = turn
+	//fmt.Println("finished")
 	return nil
 }
 
@@ -71,19 +73,18 @@ func (s *Server) CountAliveCell(req gol.Request, res *gol.Response) error {
 func (s *Server) PauseGol(PauseReq gol.Request, PauseRes *gol.Response) error {
 	//PauseRes.TestStr = "initialise"
 	fmt.Println("haha")
-	PauseRes.Pause = !s.Pause
 	s.Pause = !s.Pause
+	PauseRes.Pause = s.Pause
+
 	fmt.Println("hoho")
 	if !s.Pause {
 		fmt.Println("if statement")
-		//blocked here for some reason
 		s.Resume <- true
 		fmt.Println("sent to Resume")
 	} else {
 		fmt.Println("else statement")
 	}
-	fmt.Println("hoho")
-	//PauseRes.TestStr = "complete"
+	fmt.Println("finished")
 	return nil
 }
 
@@ -158,7 +159,14 @@ func calculateAliveCells(p gol.Params, world [][]byte) []util.Cell {
 func main() {
 	pAddr := flag.String("port", "8030", "port to listen on")
 	flag.Parse()
-	err := rpc.Register(&Server{})
+	//initialise server
+	server := &Server{
+		Resume:    make(chan bool),
+		Pause:     false,
+		Turn:      0,
+		CellCount: 0,
+	}
+	err := rpc.Register(server)
 	if err != nil {
 		return
 	}
