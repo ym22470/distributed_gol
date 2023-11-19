@@ -21,6 +21,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 	//resume := make(chan bool)
 	var mutex sync.Mutex
 	pasued := false
+	kill := false
 	request := Request{World: world, Parameter: p}
 	response := new(Response)
 	ticker := time.NewTicker(2 * time.Second)
@@ -28,7 +29,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 	// responseCell := new(Response)
 	go func() {
 		for range ticker.C {
-			if !pasued {
+			if !pasued && !kill {
 				//requestCell := Request{World: world, Parameter: p}
 				//responseCell := new(Response)
 				mutex.Lock()
@@ -42,7 +43,6 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 		}
 	}()
 
-	//resume := make(chan bool)
 	quit := make(chan bool)
 	go func() {
 		for {
@@ -60,16 +60,9 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 						}
 					}
 				case 'q':
-					requestkey := Request{Q: true}
+					// requestkey := Request{Q: true}
 					// TODO: q function
-					client.Call(Key, requestkey, response)
-					c.ioCommand <- ioOutput
-					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, response.Turns)
-					for y := 0; y < p.ImageHeight; y++ {
-						for x := 0; x < p.ImageWidth; x++ {
-							c.ioOutput <- response.World[y][x]
-						}
-					}
+					// client.Call(Key, requestkey, response)
 					c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
 					c.ioCommand <- ioCheckIdle
 					<-c.ioIdle
@@ -86,9 +79,26 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 						c.events <- StateChange{response.Turns, Executing}
 					}
 				case 'k':
-
+					requestkey := Request{S: true}
+					client.Call(Key, requestkey, response)
+					c.ioCommand <- ioOutput
+					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, response.Turns)
+					for y := 0; y < p.ImageHeight; y++ {
+						for x := 0; x < p.ImageWidth; x++ {
+							c.ioOutput <- response.World[y][x]
+						}
+					}
+					requestkey = Request{K: true}
+					kill = true
+					client.Call(Key, requestkey, response)
+					c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
+					c.ioCommand <- ioCheckIdle
+					<-c.ioIdle
+					c.events <- StateChange{response.Turns, Quitting}
+					quit <- true
 				}
 			case <-quit:
+				close(quit)
 				return
 			}
 		}

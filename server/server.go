@@ -4,6 +4,7 @@ import (
 	"flag"
 	"net"
 	"net/rpc"
+	"os"
 
 	"uk.ac.bris.cs/gameoflife/gol"
 	"uk.ac.bris.cs/gameoflife/util"
@@ -81,6 +82,8 @@ func (s *Server) KeyGol(req gol.Request, res *gol.Response) error {
 		if s.Pause != true {
 			s.Resume <- true
 		}
+	} else if req.K {
+		os.Exit(0)
 	}
 	return nil
 }
