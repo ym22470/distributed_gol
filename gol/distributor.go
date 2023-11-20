@@ -36,10 +36,8 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 				//responseCell := new(Response)
 				mutex.Lock()
 				client.Call(AliveCells, request, response)
-				// fmt.Println("The turn is now: ", responseCell.Turns)
 				c.events <- AliveCellsCount{CompletedTurns: response.Turns, CellsCount: response.CellCount}
 				mutex.Unlock()
-				//<-resume
 			} else {
 				mutex.Unlock()
 			}
@@ -73,9 +71,9 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 					c.events <- StateChange{response.Turns, Quitting}
 					quit <- true
 				case 'p':
-					requestkey := Request{P: true}
 					mutex.Lock()
 					pasued = !pasued
+					requestkey := Request{P: true, Resume: pasued}
 					mutex.Unlock()
 					client.Call(Key, requestkey, response)
 					if pasued {
@@ -124,11 +122,13 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 		c.ioFilename <- fmt.Sprintf("%dx%dx%d-%d", p.ImageHeight, p.ImageWidth, p.Turns, p.Threads)
 	}
 	//send the completed world to ioOutput c
+	mutex.Lock()
 	for i := 0; i < p.ImageWidth; i++ {
 		for j := 0; j < p.ImageHeight; j++ {
 			c.ioOutput <- response.World[i][j]
 		}
 	}
+	mutex.Unlock()
 
 	//report the final state of the world
 	mutex.Lock()

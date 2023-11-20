@@ -5,10 +5,13 @@ import (
 	"net"
 	"net/rpc"
 	"os"
+	"sync"
 
 	"uk.ac.bris.cs/gameoflife/gol"
 	"uk.ac.bris.cs/gameoflife/util"
 )
+
+var mutex sync.Mutex
 
 // Create a RPC service that contains various
 type Server struct {
@@ -20,16 +23,23 @@ type Server struct {
 }
 
 func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
-	turn := 0
 	s.Turn = 0
+	turn := 0
 	s.Resume = make(chan bool)
+	mutex.Lock()
+	s.World = copySlice(req.World)
+	mutex.Unlock()
 	// TODO: Execute all turns of the Game of Life.
 	for ; turn < req.Parameter.Turns; turn++ {
+		mutex.Lock()
 		if s.Pause {
+			mutex.Unlock()
 			<-s.Resume
+		} else {
+			mutex.Unlock()
 		}
 		if req.Parameter.Threads == 1 {
-			req.World = nextState(req.Parameter, req.World, 0, req.Parameter.ImageHeight)
+			s.World = nextState(req.Parameter, s.World, 0, req.Parameter.ImageHeight)
 		} else {
 			chans := make([]chan [][]byte, req.Parameter.Threads)
 			for i := 0; i < req.Parameter.Threads; i++ {
@@ -40,7 +50,9 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 					b = req.Parameter.ImageHeight
 				}
 				//to handle data race condition by passing a copy of world to goroutines
-				worldCopy := copySlice(req.World)
+				mutex.Lock()
+				worldCopy := copySlice(s.World)
+				mutex.Unlock()
 				go workers(req.Parameter, worldCopy, chans[i], a, b)
 
 			}
@@ -49,37 +61,49 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 				strip := <-chans[i]
 				startRow := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
 				for r, row := range strip {
+					mutex.Lock()
 					req.World[startRow+r] = row
+					mutex.Unlock()
 				}
 			}
+			mutex.Lock()
+			s.World = copySlice(req.World)
+			mutex.Unlock()
 		}
-		//fmt.Println("working")
 		//count the number of cells and turns
-		s.CellCount = len(calculateAliveCells(req.Parameter, req.World))
+		mutex.Lock()
+		s.CellCount = len(calculateAliveCells(req.Parameter, s.World))
 		s.Turn++
-		s.World = req.World
+		mutex.Unlock()
 	}
 	//send the finished world and AliveCells to respond
-	res.World = req.World
-	res.AliveCells = calculateAliveCells(req.Parameter, req.World)
+	mutex.Lock()
+	res.World = s.World
+	res.AliveCells = calculateAliveCells(req.Parameter, s.World)
 	res.CompletedTurns = turn
-	//fmt.Println("finished")
+	mutex.Unlock()
 	return nil
 }
 
 func (s *Server) CountAliveCell(req gol.Request, res *gol.Response) error {
+	mutex.Lock()
 	res.Turns = s.Turn
 	res.CellCount = s.CellCount
+	mutex.Unlock()
 	return nil
 }
 
 func (s *Server) KeyGol(req gol.Request, res *gol.Response) error {
 	if req.S {
+		mutex.Lock()
 		res.Turns = s.Turn
 		res.World = s.World
+		mutex.Unlock()
 	} else if req.P {
+		mutex.Lock()
 		s.Pause = !s.Pause
-		if s.Pause != true {
+		mutex.Unlock()
+		if !s.Pause {
 			s.Resume <- true
 		}
 	} else if req.K {
@@ -162,7 +186,6 @@ func main() {
 	//initialise server
 	server := &Server{
 		Resume:    make(chan bool),
-		Pause:     false,
 		Turn:      0,
 		CellCount: 0,
 	}

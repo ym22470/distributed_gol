@@ -23,4 +23,5 @@ type Request struct {
 	S         bool
 	Q         bool
 	K         bool
+	Resume    bool
 }
