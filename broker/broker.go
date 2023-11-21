@@ -9,21 +9,22 @@ import (
 )
 
 type Broker struct {
-	Server string
-	Client *rpc.Client
+	Servers []string
+	Client1 *rpc.Client
+	Clients []*rpc.Client
 }
 
 func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
-	err := b.Client.Call(gol.ProcessGol, req, res)
-	if err != nil {
-		return err
+	for i, client := range b.Clients {
+		funcName := gol.ProcessGol[i]
+		client.Call(funcName, req, res)
 	}
 	//for multiple workers call 4 times on 4 AWS nodes and receive the result once it's finished
 	return nil
 }
 
 func (b *Broker) GolAliveCells(req gol.Request, res *gol.Response) error {
-	err := b.Client.Call(gol.AliveCells, req, res)
+	err := b.Client1.Call(gol.AliveCells, req, res)
 	if err != nil {
 		return err
 	}
@@ -31,7 +32,7 @@ func (b *Broker) GolAliveCells(req gol.Request, res *gol.Response) error {
 }
 
 func (b *Broker) GolKey(req gol.Request, res *gol.Response) error {
-	err := b.Client.Call(gol.Key, req, res)
+	err := b.Client1.Call(gol.Key, req, res)
 	if req.K {
 		os.Exit(0)
 	}
@@ -42,11 +43,19 @@ func (b *Broker) GolKey(req gol.Request, res *gol.Response) error {
 }
 
 func main() {
-	address := "127.0.0.1:8020"
-	client, _ := rpc.Dial("tcp", address)
+	addresses := []string{
+		"127.0.0.1:8020",
+		"127.0.0.1:8020",
+		"127.0.0.1:8020",
+		"127.0.0.1:8020",
+	}
+	clients := make([]*rpc.Client, 4)
+	for n := 0; n < 4; n++ {
+		clients[n], _ = rpc.Dial("tcp", addresses[n])
+	}
 	broker := &Broker{
-		Server: address,
-		Client: client,
+		Servers: []string{"ProcessNode1", "ProcessNode2", "ProcessNode3", "ProcessNode4"},
+		Clients: clients,
 	}
 	err := rpc.Register(broker)
 	if err != nil {

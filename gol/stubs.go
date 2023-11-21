@@ -8,7 +8,12 @@ var BrokerAliveCells = "Broker.GolAliveCells"
 var Initializer = "Broker.GolInitializer"
 var BrokerKey = "Broker.GolKey"
 var Key = "Server.KeyGol"
-var ProcessGol = "Server.ProcessWorld"
+var ProcessGol = []string{
+	"Server.ProcessWorld1",
+	"Server.ProcessWorld2",
+	"Server.ProcessWorld3",
+	"Server.ProcessWorld4",
+}
 var AliveCells = "Server.CountAliveCell"
 
 type Response struct {
