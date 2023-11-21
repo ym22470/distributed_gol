@@ -106,11 +106,10 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 					}
 					// If the K is called at first, the server will be shut down immediately
 					requestkey = Request{K: true}
+					mutex.Lock()
 					kill = true
-					err2 := client.Call(BrokerKey, requestkey, response)
-					if err2 != nil {
-						return
-					}
+					mutex.Unlock()
+					client.Call(BrokerKey, requestkey, response)
 					c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
 					c.ioCommand <- ioCheckIdle
 					<-c.ioIdle
@@ -131,7 +130,9 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 	//send the content of world and receive on the other side(writePgm) concurrently
 	c.ioCommand <- ioOutput
 	// Since the output here is only required when the turns are ran out, so doesn't need the ticker anymore
+	mutex.Lock()
 	pasued = true
+	mutex.Unlock()
 	if p.Turns == 0 {
 		c.ioFilename <- fmt.Sprintf("%dx%dx0", p.ImageHeight, p.ImageWidth)
 	} else if p.Threads == 1 {

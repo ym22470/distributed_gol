@@ -4,6 +4,7 @@ import (
 	"flag"
 	"net"
 	"net/rpc"
+	"os"
 	"uk.ac.bris.cs/gameoflife/gol"
 )
 
@@ -31,6 +32,9 @@ func (b *Broker) GolAliveCells(req gol.Request, res *gol.Response) error {
 
 func (b *Broker) GolKey(req gol.Request, res *gol.Response) error {
 	err := b.Client.Call(gol.Key, req, res)
+	if req.K {
+		os.Exit(0)
+	}
 	if err != nil {
 		return err
 	}
