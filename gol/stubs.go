@@ -4,10 +4,12 @@ import (
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
+var BrokerAliveCells = "Broker.GolAliveCells"
+var Initializer = "Broker.GolInitializer"
+var BrokerKey = "Broker.GolKey"
+var Key = "Server.KeyGol"
 var ProcessGol = "Server.ProcessWorld"
 var AliveCells = "Server.CountAliveCell"
-var Key = "Server.KeyGol"
-var GolInitializer = "Broker.GolInitializer"
 
 type Response struct {
 	World          [][]byte

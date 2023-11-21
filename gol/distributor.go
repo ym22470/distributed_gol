@@ -35,7 +35,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 				//requestCell := Request{World: world, Parameter: p}
 				//responseCell := new(Response)
 				mutex.Lock()
-				client.Call(AliveCells, request, response)
+				client.Call(BrokerAliveCells, request, response)
 				c.events <- AliveCellsCount{CompletedTurns: response.Turns, CellsCount: response.CellCount}
 				mutex.Unlock()
 			} else {
@@ -53,7 +53,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 				switch key {
 				case 's':
 					requestkey := Request{S: true}
-					client.Call(Key, requestkey, response)
+					client.Call(BrokerKey, requestkey, response)
 					c.ioCommand <- ioOutput
 					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, response.Turns)
 					for y := 0; y < p.ImageHeight; y++ {
@@ -75,7 +75,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 					pasued = !pasued
 					requestkey := Request{P: true, Resume: pasued}
 					mutex.Unlock()
-					client.Call(Key, requestkey, response)
+					client.Call(BrokerKey, requestkey, response)
 					if pasued {
 						c.events <- StateChange{response.Turns, Paused}
 					} else {
@@ -84,7 +84,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 					}
 				case 'k':
 					requestkey := Request{S: true}
-					client.Call(Key, requestkey, response)
+					client.Call(BrokerKey, requestkey, response)
 					c.ioCommand <- ioOutput
 					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, response.Turns)
 					for y := 0; y < p.ImageHeight; y++ {
@@ -95,7 +95,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 					// If the K is called at first, the server will be shut down immediately
 					requestkey = Request{K: true}
 					kill = true
-					client.Call(Key, requestkey, response)
+					client.Call(BrokerKey, requestkey, response)
 					c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
 					c.ioCommand <- ioCheckIdle
 					<-c.ioIdle
@@ -108,7 +108,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 			}
 		}
 	}()
-	client.Call(GolInitializer, request, response)
+	client.Call(Initializer, request, response)
 
 	//send the content of world and receive on the other side(writePgm) concurrently
 	c.ioCommand <- ioOutput
@@ -150,11 +150,11 @@ func distributor(p Params, c distributorChannels) {
 	c.ioFilename <- fmt.Sprintf("%vx%v", p.ImageHeight, p.ImageWidth)
 
 	// Do remember to modify this ip address
-	server := "127.0.0.1:8030"
+	broker := "127.0.0.1:8030"
 	//server := "54.224.85.190:8030"
 
 	//create a client that dials to the tcp port
-	client, _ := rpc.Dial("tcp", server)
+	client, _ := rpc.Dial("tcp", broker)
 	//close dial when everything is excuted
 	defer client.Close()
 

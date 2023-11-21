@@ -8,19 +8,32 @@ import (
 )
 
 type Broker struct {
-	//servers []string
+	Server string
+	Client *rpc.Client
 }
 
 func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
-	server := "127.0.0.1:8020"
-	client, _ := rpc.Dial("tcp", server)
-	client.Call(gol.ProcessGol, req, res)
+	b.Client.Call(gol.ProcessGol, req, res)
+	//for multiple workers call 4 times on 4 AWS nodes and receive the result once it's finished
+	return nil
+}
+
+func (b *Broker) GolAliveCells(req gol.Request, res *gol.Response) error {
+	b.Client.Call(gol.AliveCells, req, res)
+	return nil
+}
+
+func (b *Broker) GolKey(req gol.Request, res *gol.Response) error {
+	b.Client.Call(gol.Key, req, res)
 	return nil
 }
 
 func main() {
+	address := "127.0.0.1:8020"
+	client, _ := rpc.Dial("tcp", address)
 	broker := &Broker{
-		//servers: []string{},
+		Server: address,
+		Client: client,
 	}
 	err := rpc.Register(broker)
 	if err != nil {
