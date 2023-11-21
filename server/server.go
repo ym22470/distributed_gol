@@ -181,7 +181,7 @@ func calculateAliveCells(p gol.Params, world [][]byte) []util.Cell {
 }
 
 func main() {
-	pAddr := flag.String("port", "8030", "port to listen on")
+	pAddr := flag.String("port", "8020", "port to listen on")
 	flag.Parse()
 	//initialise server
 	server := &Server{
