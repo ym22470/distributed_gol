@@ -193,6 +193,11 @@ func main() {
 		return
 	}
 	listener, _ := net.Listen("tcp", ":"+*pAddr)
-	defer listener.Close()
+	defer func(listener net.Listener) {
+		err := listener.Close()
+		if err != nil {
+
+		}
+	}(listener)
 	rpc.Accept(listener)
 }

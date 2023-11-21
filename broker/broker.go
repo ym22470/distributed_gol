@@ -13,18 +13,27 @@ type Broker struct {
 }
 
 func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
-	b.Client.Call(gol.ProcessGol, req, res)
+	err := b.Client.Call(gol.ProcessGol, req, res)
+	if err != nil {
+		return err
+	}
 	//for multiple workers call 4 times on 4 AWS nodes and receive the result once it's finished
 	return nil
 }
 
 func (b *Broker) GolAliveCells(req gol.Request, res *gol.Response) error {
-	b.Client.Call(gol.AliveCells, req, res)
+	err := b.Client.Call(gol.AliveCells, req, res)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (b *Broker) GolKey(req gol.Request, res *gol.Response) error {
-	b.Client.Call(gol.Key, req, res)
+	err := b.Client.Call(gol.Key, req, res)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

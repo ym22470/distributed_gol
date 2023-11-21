@@ -35,7 +35,10 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 				//requestCell := Request{World: world, Parameter: p}
 				//responseCell := new(Response)
 				mutex.Lock()
-				client.Call(BrokerAliveCells, request, response)
+				err := client.Call(BrokerAliveCells, request, response)
+				if err != nil {
+					return
+				}
 				c.events <- AliveCellsCount{CompletedTurns: response.Turns, CellsCount: response.CellCount}
 				mutex.Unlock()
 			} else {
@@ -53,7 +56,10 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 				switch key {
 				case 's':
 					requestkey := Request{S: true}
-					client.Call(BrokerKey, requestkey, response)
+					err := client.Call(BrokerKey, requestkey, response)
+					if err != nil {
+						return
+					}
 					c.ioCommand <- ioOutput
 					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, response.Turns)
 					for y := 0; y < p.ImageHeight; y++ {
@@ -75,7 +81,10 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 					pasued = !pasued
 					requestkey := Request{P: true, Resume: pasued}
 					mutex.Unlock()
-					client.Call(BrokerKey, requestkey, response)
+					err := client.Call(BrokerKey, requestkey, response)
+					if err != nil {
+						return
+					}
 					if pasued {
 						c.events <- StateChange{response.Turns, Paused}
 					} else {
@@ -84,7 +93,10 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 					}
 				case 'k':
 					requestkey := Request{S: true}
-					client.Call(BrokerKey, requestkey, response)
+					err := client.Call(BrokerKey, requestkey, response)
+					if err != nil {
+						return
+					}
 					c.ioCommand <- ioOutput
 					c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, response.Turns)
 					for y := 0; y < p.ImageHeight; y++ {
@@ -95,7 +107,10 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 					// If the K is called at first, the server will be shut down immediately
 					requestkey = Request{K: true}
 					kill = true
-					client.Call(BrokerKey, requestkey, response)
+					err2 := client.Call(BrokerKey, requestkey, response)
+					if err2 != nil {
+						return
+					}
 					c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
 					c.ioCommand <- ioCheckIdle
 					<-c.ioIdle
@@ -108,7 +123,10 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 			}
 		}
 	}()
-	client.Call(Initializer, request, response)
+	err := client.Call(Initializer, request, response)
+	if err != nil {
+		return
+	}
 
 	//send the content of world and receive on the other side(writePgm) concurrently
 	c.ioCommand <- ioOutput
@@ -156,7 +174,12 @@ func distributor(p Params, c distributorChannels) {
 	//create a client that dials to the tcp port
 	client, _ := rpc.Dial("tcp", broker)
 	//close dial when everything is excuted
-	defer client.Close()
+	defer func(client *rpc.Client) {
+		err := client.Close()
+		if err != nil {
+
+		}
+	}(client)
 
 	//fmt.Println("create a new world here")
 	//create an empty world slice
