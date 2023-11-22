@@ -154,9 +154,9 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 	mutex.Unlock()
 	// Make sure that the Io has finished any output before exiting.
 	fmt.Println("send complete")
-	//blocked, ioCommand is blocked
 	c.ioCommand <- ioCheckIdle
 	fmt.Println("send complete")
+	fmt.Println(len(response.AliveCells))
 
 	<-c.ioIdle
 	c.events <- StateChange{response.CompletedTurns, Quitting}

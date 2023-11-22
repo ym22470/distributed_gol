@@ -7,16 +7,16 @@ import (
 	"net/rpc"
 	"sync"
 	"uk.ac.bris.cs/gameoflife/gol"
+	"uk.ac.bris.cs/gameoflife/util"
 )
 
 var mutex sync.Mutex
 var wg sync.WaitGroup
 
 type Broker struct {
-	//Servers []string
-	//Client1       *rpc.Client
-	Clients       []*rpc.Client
-	CombinedWorld [][]byte
+	Clients            []*rpc.Client
+	CombinedWorld      [][]byte
+	CombinedAliveCells []util.Cell
 }
 
 func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
@@ -28,6 +28,9 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 	for i, client := range b.Clients {
 		req.Start = i * (req.Parameter.ImageHeight / req.Parameter.Threads)
 		req.End = (i + 1) * (req.Parameter.ImageHeight / req.Parameter.Threads)
+		if i == req.Parameter.Threads-1 {
+			req.End = req.Parameter.ImageHeight
+		}
 		// Increment the WaitGroup counter
 		wg.Add(1)
 		// Launch a goroutine to make calls to the servers
@@ -39,6 +42,8 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 			client.Call(gol.ProcessGol, req, res)
 			fmt.Println("call completed")
 			responses[i] = res.Slice
+			b.CombinedAliveCells = append(b.CombinedAliveCells, res.AliveCells...)
+			//fmt.Println(len(b.CombinedAliveCells))
 		}()
 	}
 	// Wait for all goroutines to complete
@@ -47,16 +52,17 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 	// Assemble all the strips together
 	for i := 0; i < req.Parameter.Threads; i++ {
 		fmt.Println("inside loop")
-		//fmt.Println(len(responses[i][0]))
 		strip := responses[i]
+		b.CombinedWorld = req.World
 		startRow := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
 		for r, row := range strip {
 			mutex.Lock()
-			req.World[startRow+r] = row
+			b.CombinedWorld[startRow+r] = row
 			mutex.Unlock()
 		}
 	}
-	res.World = req.World
+	res.World = b.CombinedWorld
+	res.AliveCells = b.CombinedAliveCells
 	fmt.Println(len(res.World))
 	fmt.Println(len(res.World[0]))
 	return nil
@@ -93,7 +99,6 @@ func main() {
 		clients[n], _ = rpc.Dial("tcp", addresses[n])
 	}
 	broker := &Broker{
-		//Servers: []string{"ProcessNode1", "ProcessNode2", "ProcessNode3", "ProcessNode4"},
 		Clients: clients,
 	}
 	err := rpc.Register(broker)

@@ -51,23 +51,23 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 			//fmt.Println(len(worldCopy[0]) + 1)
 			mutex.Unlock()
 			go workers(req.Parameter, worldCopy, chans, req.Start, req.End)
-			fmt.Println("turn completed")
+			//fmt.Println("turn completed")
 			strip := <-chans
-			fmt.Println("turn completed")
+			//fmt.Println("turn completed")
 			mutex.Lock()
 			//fmt.Println(len(strip[0]))
 			s.Slice = copySlice(strip)
 			mutex.Unlock()
-			fmt.Println("turn completed")
+			//fmt.Println("turn completed")
 			//count the number of cells and turns
 			mutex.Lock()
 			s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
 			s.Turn++
 			mutex.Unlock()
-			fmt.Println("turn completed")
+			//fmt.Println("turn completed")
 		}
 	} else {
-		s.Slice = req.World[0 : len(req.World)/req.Parameter.Threads]
+		s.Slice = req.World[req.Start:req.End]
 		mutex.Lock()
 		s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
 		mutex.Unlock()
@@ -78,9 +78,11 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	fmt.Println(len(req.World[0]) + 4)
 	//send the finished world and AliveCells to respond
 	mutex.Lock()
+	fmt.Println(len(s.Slice))
 	res.Slice = s.Slice
 	//datarace here, need mutex lock
 	res.AliveCells = calculateAliveCells(req.Parameter, s.Slice)
+	fmt.Println(len(res.AliveCells))
 	res.CompletedTurns = turn
 	mutex.Unlock()
 	return nil
