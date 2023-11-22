@@ -46,6 +46,7 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 	// Now that all goroutines have completed, you can proceed
 	// Assemble all the strips together
 	for i := 0; i < req.Parameter.Threads; i++ {
+		fmt.Println("inside loop")
 		strip := responses[i]
 		startRow := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
 		for r, row := range strip {

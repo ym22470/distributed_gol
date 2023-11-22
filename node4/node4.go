@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net"
 	"net/rpc"
 	"os"
@@ -23,12 +24,15 @@ type Server struct {
 }
 
 func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
+	//fmt.Println(req.Parameter.Turns)
 	s.Turn = 0
 	turn := 0
 	s.Resume = make(chan bool)
 	mutex.Lock()
 	s.World = copySlice(req.World)
 	mutex.Unlock()
+	//fmt.Println("turn completed")
+	//fmt.Println(req.Parameter.Turns)
 	// TODO: Execute all turns of the Game of Life.
 	for ; turn < req.Parameter.Turns; turn++ {
 		mutex.Lock()
@@ -42,23 +46,29 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 		mutex.Lock()
 		worldCopy := copySlice(s.World)
 		mutex.Unlock()
-		workers(req.Parameter, worldCopy, chans, req.Start, req.End)
+		go workers(req.Parameter, worldCopy, chans, req.Start, req.End)
+		fmt.Println("turn completed")
 		strip := <-chans
+		fmt.Println("turn completed")
 		mutex.Lock()
 		s.Slice = copySlice(strip)
 		mutex.Unlock()
+		fmt.Println("turn completed")
 		//count the number of cells and turns
 		mutex.Lock()
 		s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
 		s.Turn++
 		mutex.Unlock()
+		fmt.Println("turn completed")
+
 	}
 	//send the finished world and AliveCells to respond
-	mutex.Lock()
-	res.World = s.Slice
+	//mutex.Lock()
+	res.Slice = s.Slice
+	//datarace here, need mutex lock
 	//res.AliveCells = calculateAliveCells(req.Parameter, s.Slice)
 	res.CompletedTurns = turn
-	mutex.Unlock()
+	//mutex.Unlock()
 	return nil
 }
 
@@ -134,6 +144,7 @@ func nextState(p gol.Params, world [][]byte, start, end int) [][]byte {
 func workers(p gol.Params, world [][]byte, result chan<- [][]byte, start, end int) {
 	worldPiece := nextState(p, world, start, end)
 	result <- worldPiece
+	fmt.Println("state updated")
 	close(result)
 }
 func copySlice(src [][]byte) [][]byte {
@@ -147,14 +158,14 @@ func copySlice(src [][]byte) [][]byte {
 
 func calculateAliveCells(p gol.Params, world [][]byte) []util.Cell {
 	var aliveCell []util.Cell
-	for row := 0; row < p.ImageHeight; row++ {
+	for row := 0; row < p.ImageHeight/p.Threads; row++ {
 		for col := 0; col < p.ImageWidth; col++ {
-			mutex.Lock()
+			//mutex.Lock()
 			if world[row][col] == 255 {
-				mutex.Unlock()
+				//mutex.Unlock()
 				aliveCell = append(aliveCell, util.Cell{X: col, Y: row})
 			} else {
-				mutex.Unlock()
+				//mutex.Unlock()
 			}
 		}
 	}
