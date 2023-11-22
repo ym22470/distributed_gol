@@ -122,10 +122,8 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 			}
 		}
 	}()
-	err := client.Call(Initializer, request, response)
-	if err != nil {
-		return
-	}
+	client.Call(Initializer, request, response)
+	fmt.Println(len(response.World))
 
 	//send the content of world and receive on the other side(writePgm) concurrently
 	c.ioCommand <- ioOutput

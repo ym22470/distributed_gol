@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net"
 	"net/rpc"
 	"os"
@@ -43,6 +44,7 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 			}
 		}
 	}
+	fmt.Println(len(res.World))
 	//for multiple workers call 4 times on 4 AWS nodes and receive the result once it's finished
 	return nil
 }

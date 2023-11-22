@@ -149,8 +149,12 @@ func calculateAliveCells(p gol.Params, world [][]byte) []util.Cell {
 	var aliveCell []util.Cell
 	for row := 0; row < p.ImageHeight; row++ {
 		for col := 0; col < p.ImageWidth; col++ {
+			mutex.Lock()
 			if world[row][col] == 255 {
+				mutex.Unlock()
 				aliveCell = append(aliveCell, util.Cell{X: col, Y: row})
+			} else {
+				mutex.Unlock()
 			}
 		}
 	}
