@@ -31,9 +31,13 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 		// Increment the WaitGroup counter
 		wg.Add(1)
 		// Launch a goroutine to make calls to the servers
+		client := client
+		i := i
 		go func() {
 			defer wg.Done() // Decrement the counter when the goroutine completes
+			fmt.Println("function called")
 			client.Call(gol.ProcessGol, req, res)
+			fmt.Println("call completed")
 			responses[i] = res.Slice
 		}()
 	}
@@ -46,10 +50,11 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 		startRow := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
 		for r, row := range strip {
 			mutex.Lock()
-			res.World[startRow+r] = row
+			req.World[startRow+r] = row
 			mutex.Unlock()
 		}
 	}
+	res.World = req.World
 	fmt.Println(len(res.World))
 	return nil
 }

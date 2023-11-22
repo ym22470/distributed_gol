@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net"
 	"net/rpc"
 	"os"
@@ -23,6 +24,7 @@ type Server struct {
 }
 
 func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
+	//fmt.Println(req.Parameter.Turns)
 	s.Turn = 0
 	turn := 0
 	s.Resume = make(chan bool)
@@ -31,6 +33,7 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	mutex.Unlock()
 	// TODO: Execute all turns of the Game of Life.
 	for ; turn < req.Parameter.Turns; turn++ {
+		//fmt.Println("turn completed")
 		mutex.Lock()
 		if s.Pause {
 			mutex.Unlock()
@@ -54,11 +57,13 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 		mutex.Unlock()
 	}
 	//send the finished world and AliveCells to respond
-	mutex.Lock()
+	//mutex.Lock()
 	res.Slice = s.Slice
-	res.AliveCells = calculateAliveCells(req.Parameter, s.Slice)
+	//datarace here, need mutex lock
+	//res.AliveCells = calculateAliveCells(req.Parameter, s.Slice)
 	res.CompletedTurns = turn
-	mutex.Unlock()
+	//mutex.Unlock()
+	fmt.Println("turn completed")
 	return nil
 }
 

@@ -56,7 +56,7 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	//send the finished world and AliveCells to respond
 	mutex.Lock()
 	res.World = s.Slice
-	res.AliveCells = calculateAliveCells(req.Parameter, s.Slice)
+	//res.AliveCells = calculateAliveCells(req.Parameter, s.Slice)
 	res.CompletedTurns = turn
 	mutex.Unlock()
 	return nil
