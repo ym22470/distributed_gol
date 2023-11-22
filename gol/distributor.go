@@ -122,25 +122,25 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 			}
 		}
 	}()
-	client.Call(Initializer, request, response)
-	fmt.Println(len(response.World))
+	response.World = make([][]byte, p.ImageHeight)
+	for i := range response.World {
+		response.World[i] = make([]byte, p.ImageWidth)
+	}
+	client.Call(BrokerGol, request, response)
+	//fmt.Println(len(response.World))
+	//world = copySlice(response.World)
 
+	// response.World = copySlice(world)
 	//send the content of world and receive on the other side(writePgm) concurrently
 	c.ioCommand <- ioOutput
 	// Since the output here is only required when the turns are ran out, so doesn't need the ticker anymore
 	mutex.Lock()
 	pasued = true
 	mutex.Unlock()
-	if p.Turns == 0 {
-		c.ioFilename <- fmt.Sprintf("%dx%dx0", p.ImageHeight, p.ImageWidth)
-	} else if p.Threads == 1 {
-		c.ioFilename <- fmt.Sprintf("%dx%dx%d", p.ImageHeight, p.ImageWidth, p.Turns)
-	} else {
-		c.ioFilename <- fmt.Sprintf("%dx%dx%d-%d", p.ImageHeight, p.ImageWidth, p.Turns, p.Threads)
-	}
+	c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, p.Turns)
 	//send the completed world to ioOutput c
 	mutex.Lock()
-	fmt.Println(len(response.World[0]))
+	// fmt.Println(len(response.World[0]))
 	for i := 0; i < p.ImageHeight; i++ {
 		for j := 0; j < p.ImageWidth; j++ {
 			c.ioOutput <- response.World[i][j]
@@ -153,16 +153,25 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 	c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
 	mutex.Unlock()
 	// Make sure that the Io has finished any output before exiting.
-	fmt.Println("send complete")
+	//fmt.Println("send complete")
 	c.ioCommand <- ioCheckIdle
-	fmt.Println("send complete")
-	fmt.Println(len(response.AliveCells))
+	//fmt.Println("send complete")
+	//fmt.Println(len(response.AliveCells))
 
 	<-c.ioIdle
 	c.events <- StateChange{response.CompletedTurns, Quitting}
 
 	// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
 	close(c.events)
+}
+
+func copySlice(src [][]byte) [][]byte {
+	dst := make([][]byte, len(src))
+	for i := range src {
+		dst[i] = make([]byte, len(src[i]))
+		copy(dst[i], src[i])
+	}
+	return dst
 }
 
 func distributor(p Params, c distributorChannels) {
@@ -196,5 +205,6 @@ func distributor(p Params, c distributorChannels) {
 			world[y][x] = <-c.ioInput
 		}
 	}
+
 	makeCall(client, world, p, c)
 }

@@ -7,6 +7,7 @@ import (
 	"net/rpc"
 	"os"
 	"sync"
+
 	"uk.ac.bris.cs/gameoflife/gol"
 	"uk.ac.bris.cs/gameoflife/util"
 )
@@ -74,15 +75,15 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	}
 	//case when the resquest turn is 0
 
-	fmt.Println(len(req.World))
-	fmt.Println(len(req.World[0]) + 4)
+	// fmt.Println(len(req.World))
+	// fmt.Println(len(req.World[0]) + 4)
 	//send the finished world and AliveCells to respond
 	mutex.Lock()
-	fmt.Println(len(s.Slice))
+	// fmt.Println(len(s.Slice))
 	res.Slice = s.Slice
 	//datarace here, need mutex lock
 	res.AliveCells = calculateAliveCells(req.Parameter, s.Slice)
-	fmt.Println(len(res.AliveCells))
+	// fmt.Println(len(res.AliveCells))
 	res.CompletedTurns = turn
 	mutex.Unlock()
 	return nil
@@ -160,7 +161,7 @@ func nextState(p gol.Params, world [][]byte, start, end int) [][]byte {
 func workers(p gol.Params, world [][]byte, result chan<- [][]byte, start, end int) {
 	worldPiece := nextState(p, world, start, end)
 	result <- worldPiece
-	fmt.Println("state updated")
+	// fmt.Println("state updated")
 	close(result)
 }
 func copySlice(src [][]byte) [][]byte {

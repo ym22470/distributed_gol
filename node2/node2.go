@@ -7,6 +7,7 @@ import (
 	"net/rpc"
 	"os"
 	"sync"
+
 	"uk.ac.bris.cs/gameoflife/gol"
 	"uk.ac.bris.cs/gameoflife/util"
 )
