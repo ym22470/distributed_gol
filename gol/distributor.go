@@ -140,8 +140,9 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 	}
 	//send the completed world to ioOutput c
 	mutex.Lock()
-	for i := 0; i < p.ImageWidth; i++ {
-		for j := 0; j < p.ImageHeight; j++ {
+	fmt.Println(len(response.World[0]))
+	for i := 0; i < p.ImageHeight; i++ {
+		for j := 0; j < p.ImageWidth; j++ {
 			c.ioOutput <- response.World[i][j]
 		}
 	}
@@ -152,8 +153,10 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 	c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
 	mutex.Unlock()
 	// Make sure that the Io has finished any output before exiting.
-
+	fmt.Println("send complete")
+	//blocked, ioCommand is blocked
 	c.ioCommand <- ioCheckIdle
+	fmt.Println("send complete")
 
 	<-c.ioIdle
 	c.events <- StateChange{response.CompletedTurns, Quitting}

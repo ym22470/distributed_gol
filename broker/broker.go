@@ -47,6 +47,7 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 	// Assemble all the strips together
 	for i := 0; i < req.Parameter.Threads; i++ {
 		fmt.Println("inside loop")
+		//fmt.Println(len(responses[i][0]))
 		strip := responses[i]
 		startRow := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
 		for r, row := range strip {
@@ -57,6 +58,7 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 	}
 	res.World = req.World
 	fmt.Println(len(res.World))
+	fmt.Println(len(res.World[0]))
 	return nil
 }
 

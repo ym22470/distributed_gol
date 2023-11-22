@@ -34,41 +34,55 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	//fmt.Println("turn completed")
 	//fmt.Println(req.Parameter.Turns)
 	// TODO: Execute all turns of the Game of Life.
-	for ; turn < req.Parameter.Turns; turn++ {
-		mutex.Lock()
-		if s.Pause {
+	fmt.Println(len(req.World[0]) + 3)
+	if req.Parameter.Turns > 0 {
+		for ; turn < req.Parameter.Turns; turn++ {
+			mutex.Lock()
+			if s.Pause {
+				mutex.Unlock()
+				<-s.Resume
+			} else {
+				mutex.Unlock()
+			}
+			chans := make(chan [][]byte)
+			mutex.Lock()
+			//fmt.Println(len(req.World[0]) + 2)
+			worldCopy := copySlice(s.World)
+			//fmt.Println(len(worldCopy[0]) + 1)
 			mutex.Unlock()
-			<-s.Resume
-		} else {
+			go workers(req.Parameter, worldCopy, chans, req.Start, req.End)
+			fmt.Println("turn completed")
+			strip := <-chans
+			fmt.Println("turn completed")
+			mutex.Lock()
+			//fmt.Println(len(strip[0]))
+			s.Slice = copySlice(strip)
 			mutex.Unlock()
+			fmt.Println("turn completed")
+			//count the number of cells and turns
+			mutex.Lock()
+			s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
+			s.Turn++
+			mutex.Unlock()
+			fmt.Println("turn completed")
 		}
-		chans := make(chan [][]byte)
-		mutex.Lock()
-		worldCopy := copySlice(s.World)
-		mutex.Unlock()
-		go workers(req.Parameter, worldCopy, chans, req.Start, req.End)
-		fmt.Println("turn completed")
-		strip := <-chans
-		fmt.Println("turn completed")
-		mutex.Lock()
-		s.Slice = copySlice(strip)
-		mutex.Unlock()
-		fmt.Println("turn completed")
-		//count the number of cells and turns
+	} else {
+		s.Slice = req.World[0 : len(req.World)/req.Parameter.Threads]
 		mutex.Lock()
 		s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
-		s.Turn++
 		mutex.Unlock()
-		fmt.Println("turn completed")
-
 	}
+	//case when the resquest turn is 0
+
+	fmt.Println(len(req.World))
+	fmt.Println(len(req.World[0]) + 4)
 	//send the finished world and AliveCells to respond
-	//mutex.Lock()
+	mutex.Lock()
 	res.Slice = s.Slice
 	//datarace here, need mutex lock
-	//res.AliveCells = calculateAliveCells(req.Parameter, s.Slice)
+	res.AliveCells = calculateAliveCells(req.Parameter, s.Slice)
 	res.CompletedTurns = turn
-	//mutex.Unlock()
+	mutex.Unlock()
 	return nil
 }
 
@@ -158,12 +172,12 @@ func copySlice(src [][]byte) [][]byte {
 
 func calculateAliveCells(p gol.Params, world [][]byte) []util.Cell {
 	var aliveCell []util.Cell
-	for row := 0; row < p.ImageHeight/p.Threads; row++ {
-		for col := 0; col < p.ImageWidth; col++ {
+	for row := 0; row < len(world); row++ {
+		for col := 0; col < len(world[row]); col++ {
 			//mutex.Lock()
 			if world[row][col] == 255 {
 				//mutex.Unlock()
-				aliveCell = append(aliveCell, util.Cell{X: col, Y: row + p.ImageHeight/p.Threads})
+				aliveCell = append(aliveCell, util.Cell{X: col, Y: row})
 			} else {
 				//mutex.Unlock()
 			}
