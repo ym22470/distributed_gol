@@ -5,66 +5,71 @@ import (
 	"fmt"
 	"net"
 	"net/rpc"
-	"os"
 	"sync"
 	"uk.ac.bris.cs/gameoflife/gol"
 )
 
 var mutex sync.Mutex
+var wg sync.WaitGroup
 
 type Broker struct {
 	//Servers []string
-	Client1       *rpc.Client
+	//Client1       *rpc.Client
 	Clients       []*rpc.Client
 	CombinedWorld [][]byte
 }
 
 func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
-	responses := [][][]byte{}
-	//counter counts the number of calls finished
-	counter := 0
+	responses := make([][][]byte, len(b.Clients))
+	// Initialize each slice in responses to prevent index out of range error
+	for i := range responses {
+		responses[i] = make([][]byte, req.Parameter.ImageHeight/req.Parameter.Threads)
+	}
 	for i, client := range b.Clients {
 		req.Start = i * (req.Parameter.ImageHeight / req.Parameter.Threads)
 		req.End = (i + 1) * (req.Parameter.ImageHeight / req.Parameter.Threads)
-		//call the AWS nodes concurrently
+		// Increment the WaitGroup counter
+		wg.Add(1)
+		// Launch a goroutine to make calls to the servers
 		go func() {
+			defer wg.Done() // Decrement the counter when the goroutine completes
 			client.Call(gol.ProcessGol, req, res)
 			responses[i] = res.Slice
-			counter++
 		}()
 	}
-	if counter == len(b.Clients) {
-		for i := 0; i < req.Parameter.Threads; i++ {
-			strip := responses[i]
-			startRow := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
-			for r, row := range strip {
-				mutex.Lock()
-				res.World[startRow+r] = row
-				mutex.Unlock()
-			}
+	// Wait for all goroutines to complete
+	wg.Wait()
+	// Now that all goroutines have completed, you can proceed
+	// Assemble all the strips together
+	for i := 0; i < req.Parameter.Threads; i++ {
+		strip := responses[i]
+		startRow := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
+		for r, row := range strip {
+			mutex.Lock()
+			res.World[startRow+r] = row
+			mutex.Unlock()
 		}
 	}
 	fmt.Println(len(res.World))
-	//for multiple workers call 4 times on 4 AWS nodes and receive the result once it's finished
 	return nil
 }
 
 func (b *Broker) GolAliveCells(req gol.Request, res *gol.Response) error {
-	err := b.Client1.Call(gol.AliveCells, req, res)
-	if err != nil {
-		return err
-	}
+	//err := b.Client1.Call(gol.AliveCells, req, res)
+	//if err != nil {
+	//	return err
+	//}
 	return nil
 }
 
 func (b *Broker) GolKey(req gol.Request, res *gol.Response) error {
-	err := b.Client1.Call(gol.Key, req, res)
-	if req.K {
-		os.Exit(0)
-	}
-	if err != nil {
-		return err
-	}
+	//err := b.Client1.Call(gol.Key, req, res)
+	//if req.K {
+	//	os.Exit(0)
+	//}
+	//if err != nil {
+	//	return err
+	//}
 	return nil
 }
 
