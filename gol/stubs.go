@@ -8,16 +8,12 @@ var BrokerAliveCells = "Broker.GolAliveCells"
 var Initializer = "Broker.GolInitializer"
 var BrokerKey = "Broker.GolKey"
 var Key = "Server.KeyGol"
-var ProcessGol = []string{
-	"Server.ProcessWorld1",
-	"Server.ProcessWorld2",
-	"Server.ProcessWorld3",
-	"Server.ProcessWorld4",
-}
+var ProcessGol = "Server.ProcessWorld"
 var AliveCells = "Server.CountAliveCell"
 
 type Response struct {
 	World          [][]byte
+	Slice          [][]byte
 	AliveCells     []util.Cell
 	CompletedTurns int
 	CellCount      int
@@ -32,4 +28,6 @@ type Request struct {
 	Q         bool
 	K         bool
 	Resume    bool
+	Start     int
+	End       int
 }

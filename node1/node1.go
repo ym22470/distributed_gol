@@ -19,9 +19,10 @@ type Server struct {
 	Resume    chan bool
 	Pause     bool
 	World     [][]byte
+	Slice     [][]byte
 }
 
-func (s *Server) ProcessWorld1(req gol.Request, res *gol.Response) error {
+func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	s.Turn = 0
 	turn := 0
 	s.Resume = make(chan bool)
@@ -37,48 +38,25 @@ func (s *Server) ProcessWorld1(req gol.Request, res *gol.Response) error {
 		} else {
 			mutex.Unlock()
 		}
-		if req.Parameter.Threads == 1 {
-			s.World = nextState(req.Parameter, s.World, 0, req.Parameter.ImageHeight)
-		} else {
-			chans := make([]chan [][]byte, req.Parameter.Threads)
-			for i := 0; i < req.Parameter.Threads; i++ {
-				chans[i] = make(chan [][]byte)
-				a := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
-				b := (i + 1) * (req.Parameter.ImageHeight / req.Parameter.Threads)
-				if i == req.Parameter.Threads-1 {
-					b = req.Parameter.ImageHeight
-				}
-				//to handle data race condition by passing a copy of world to goroutines
-				mutex.Lock()
-				worldCopy := copySlice(s.World)
-				mutex.Unlock()
-				go workers(req.Parameter, worldCopy, chans[i], a, b)
-
-			}
-			//combine all the strips produced by workers
-			for i := 0; i < req.Parameter.Threads; i++ {
-				strip := <-chans[i]
-				startRow := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
-				for r, row := range strip {
-					mutex.Lock()
-					req.World[startRow+r] = row
-					mutex.Unlock()
-				}
-			}
-			mutex.Lock()
-			s.World = copySlice(req.World)
-			mutex.Unlock()
-		}
+		chans := make(chan [][]byte)
+		mutex.Lock()
+		worldCopy := copySlice(s.World)
+		mutex.Unlock()
+		workers(req.Parameter, worldCopy, chans, req.Start, req.End)
+		strip := <-chans
+		mutex.Lock()
+		s.Slice = copySlice(strip)
+		mutex.Unlock()
 		//count the number of cells and turns
 		mutex.Lock()
-		s.CellCount = len(calculateAliveCells(req.Parameter, s.World))
+		s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
 		s.Turn++
 		mutex.Unlock()
 	}
 	//send the finished world and AliveCells to respond
 	mutex.Lock()
-	res.World = s.World
-	res.AliveCells = calculateAliveCells(req.Parameter, s.World)
+	res.Slice = s.Slice
+	res.AliveCells = calculateAliveCells(req.Parameter, s.Slice)
 	res.CompletedTurns = turn
 	mutex.Unlock()
 	return nil
@@ -180,7 +158,7 @@ func calculateAliveCells(p gol.Params, world [][]byte) []util.Cell {
 }
 
 func main() {
-	pAddr := flag.String("port", "8020", "port to listen on")
+	pAddr := flag.String("port", "8040", "port to listen on")
 	flag.Parse()
 	//initialise server
 	server := &Server{
