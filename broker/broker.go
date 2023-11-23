@@ -14,6 +14,9 @@ var mutex sync.Mutex
 var wg sync.WaitGroup
 
 type Broker struct {
+	Pause              bool
+	Resume             bool
+	Turn               int
 	Clients            []*rpc.Client
 	CombinedWorld      [][]byte
 	CombinedAliveCells []util.Cell
@@ -22,60 +25,64 @@ type Broker struct {
 func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 	//reset after each call
 	b.CombinedWorld = [][]byte{}
+	turn := 0
 	if req.Parameter.Turns == 0 {
 		b.CombinedWorld = copySlice(req.World)
 		//b.CombinedAliveCells
 	} else {
-		//b.CombinedAliveCells = []util.Cell{}
-		responses := make([][][]byte, len(b.Clients))
-		// Initialize each slice in responses to prevent index out of range error
-		for i := range responses {
-			responses[i] = make([][]byte, req.Parameter.ImageHeight/req.Parameter.Threads)
-		}
-		for i, client := range b.Clients {
-			// Calculate start and end for this segment
-			start := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
-			end := (i + 1) * (req.Parameter.ImageHeight / req.Parameter.Threads)
-			if i == req.Parameter.Threads-1 {
-				end = req.Parameter.ImageHeight
+		for ; turn < req.Parameter.Turns; turn++ {
+			//b.CombinedAliveCells = []util.Cell{}
+			responses := make([][][]byte, len(b.Clients))
+			// Initialize each slice in responses to prevent index out of range error
+			for i := range responses {
+				responses[i] = make([][]byte, req.Parameter.ImageHeight/req.Parameter.Threads)
 			}
-			// Increment the WaitGroup counter
-			wg.Add(1)
-			// Create a copy of req for each goroutine
-			reqCopy := req
-			reqCopy.Start = start
-			reqCopy.End = end
-			// Launch the goroutine with its own copy of req
-			go func(client *rpc.Client, reqCopy gol.Request, i int) {
-				defer wg.Done()
+			for i, client := range b.Clients {
+				// Calculate start and end for this segment
+				start := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
+				end := (i + 1) * (req.Parameter.ImageHeight / req.Parameter.Threads)
+				if i == req.Parameter.Threads-1 {
+					end = req.Parameter.ImageHeight
+				}
+				// Increment the WaitGroup counter
+				wg.Add(1)
+				// Create a copy of req for each goroutine
+				reqCopy := req
+				reqCopy.Start = start
+				reqCopy.End = end
+				// Launch the goroutine with its own copy of req
+				go func(client *rpc.Client, reqCopy gol.Request, i int) {
+					defer wg.Done()
 
-				localRes := &gol.Response{} // Create a local response object
+					localRes := &gol.Response{} // Create a local response object
 
-				fmt.Println("Goroutine for start:", reqCopy.Start, "end:", reqCopy.End)
-				client.Call(gol.ProcessGol, reqCopy, localRes)
-				fmt.Println("RPC call completed for start:", reqCopy.Start, "end:", reqCopy.End)
+					fmt.Println("Goroutine for start:", reqCopy.Start, "end:", reqCopy.End)
+					client.Call(gol.ProcessGol, reqCopy, localRes)
+					fmt.Println("RPC call completed for start:", reqCopy.Start, "end:", reqCopy.End)
 
-				mutex.Lock()
-				responses[i] = localRes.Slice
-				//b.CombinedAliveCells = append(b.CombinedAliveCells, localRes.AliveCells...)
-				mutex.Unlock()
-			}(client, reqCopy, i)
-		}
-
-		// Wait for all goroutines to complete
-		wg.Wait()
-		// Now that all goroutines have completed, you can proceed
-		// Assemble all the strips together
-		b.CombinedWorld = req.World
-		for i := 0; i < req.Parameter.Threads; i++ {
-			fmt.Println("inside loop")
-			strip := responses[i]
-			startRow := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
-			for r, row := range strip {
-				mutex.Lock()
-				req.World[startRow+r] = row
-				mutex.Unlock()
+					mutex.Lock()
+					responses[i] = localRes.Slice
+					//b.CombinedAliveCells = append(b.CombinedAliveCells, localRes.AliveCells...)
+					mutex.Unlock()
+				}(client, reqCopy, i)
 			}
+
+			// Wait for all goroutines to complete
+			wg.Wait()
+			// Now that all goroutines have completed, you can proceed
+			// Assemble all the strips together
+			b.CombinedWorld = req.World
+			for i := 0; i < req.Parameter.Threads; i++ {
+				fmt.Println("inside loop")
+				strip := responses[i]
+				startRow := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
+				for r, row := range strip {
+					mutex.Lock()
+					req.World[startRow+r] = row
+					mutex.Unlock()
+				}
+			}
+			b.Turn = turn
 		}
 	}
 	res.World = copySlice(b.CombinedWorld)
@@ -114,12 +121,20 @@ func (b *Broker) GolAliveCells(req gol.Request, res *gol.Response) error {
 }
 
 func (b *Broker) GolKey(req gol.Request, res *gol.Response) error {
-	//err := b.Client1.Call(gol.Key, req, res)
-	//if req.K {
+	//if req.S {
+	//	mutex.Lock()
+	//	res.Turns = b.Turn
+	//	res.World = copySlice(b.CombinedWorld)
+	//	mutex.Unlock()
+	//} else if req.P {
+	//	mutex.Lock()
+	//	s.Pause = !s.Pause
+	//	mutex.Unlock()
+	//	if !s.Pause {
+	//		s.Resume <- true
+	//	}
+	//} else if req.K {
 	//	os.Exit(0)
-	//}
-	//if err != nil {
-	//	return err
 	//}
 	return nil
 }
