@@ -26,7 +26,6 @@ type Server struct {
 func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	//fmt.Println(req.Parameter.Turns)
 	s.Turn = 0
-	//turn := 0
 	s.Resume = make(chan bool)
 	mutex.Lock()
 	s.World = copySlice(req.World)

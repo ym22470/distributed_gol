@@ -31,6 +31,13 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	mutex.Lock()
 	s.World = copySlice(req.World)
 	mutex.Unlock()
+	mutex.Lock()
+	if s.Pause {
+		mutex.Unlock()
+		<-s.Resume
+	} else {
+		mutex.Unlock()
+	}
 	//fmt.Println("turn completed")
 	//fmt.Println(req.Parameter.Turns)
 	// TODO: Execute all turns of the Game of Life.
@@ -41,13 +48,13 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 		fmt.Println(req.Start)
 		fmt.Println(req.End)
 		//for ; turn < req.Parameter.Turns; turn++ {
-		mutex.Lock()
-		if s.Pause {
-			mutex.Unlock()
-			<-s.Resume
-		} else {
-			mutex.Unlock()
-		}
+		//mutex.Lock()
+		//if s.Pause {
+		//	mutex.Unlock()
+		//	<-s.Resume
+		//} else {
+		//	mutex.Unlock()
+		//}
 		chans := make(chan [][]byte)
 		mutex.Lock()
 		//fmt.Println(len(req.World[0]) + 2)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/rpc"
+	"os"
 	"sync"
 	"uk.ac.bris.cs/gameoflife/gol"
 	"uk.ac.bris.cs/gameoflife/util"
@@ -15,8 +16,9 @@ var wg sync.WaitGroup
 
 type Broker struct {
 	Pause              bool
-	Resume             bool
+	Resume             chan bool
 	Turn               int
+	CellCount          int
 	Clients            []*rpc.Client
 	CombinedWorld      [][]byte
 	CombinedAliveCells []util.Cell
@@ -24,13 +26,27 @@ type Broker struct {
 
 func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 	//reset after each call
+	b.Resume = make(chan bool)
 	b.CombinedWorld = [][]byte{}
 	turn := 0
 	if req.Parameter.Turns == 0 {
+		mutex.Lock()
+		if b.Pause {
+			mutex.Unlock()
+			<-b.Resume
+		} else {
+			mutex.Unlock()
+		}
 		b.CombinedWorld = copySlice(req.World)
-		//b.CombinedAliveCells
 	} else {
 		for ; turn < req.Parameter.Turns; turn++ {
+			mutex.Lock()
+			if b.Pause {
+				mutex.Unlock()
+				<-b.Resume
+			} else {
+				mutex.Unlock()
+			}
 			//b.CombinedAliveCells = []util.Cell{}
 			responses := make([][][]byte, len(b.Clients))
 			// Initialize each slice in responses to prevent index out of range error
@@ -66,7 +82,6 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 					mutex.Unlock()
 				}(client, reqCopy, i)
 			}
-
 			// Wait for all goroutines to complete
 			wg.Wait()
 			// Now that all goroutines have completed, you can proceed
@@ -74,6 +89,8 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 			b.CombinedWorld = req.World
 			for i := 0; i < req.Parameter.Threads; i++ {
 				fmt.Println("inside loop")
+				fmt.Println(req.Parameter.Threads)
+				fmt.Println(len(responses))
 				strip := responses[i]
 				startRow := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
 				for r, row := range strip {
@@ -83,6 +100,7 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 				}
 			}
 			b.Turn = turn
+			b.CellCount = len(calculateAliveCells(req.Parameter, b.CombinedWorld))
 		}
 	}
 	res.World = copySlice(b.CombinedWorld)
@@ -113,29 +131,29 @@ func calculateAliveCells(p gol.Params, world [][]byte) []util.Cell {
 }
 
 func (b *Broker) GolAliveCells(req gol.Request, res *gol.Response) error {
-	//err := b.Client1.Call(gol.AliveCells, req, res)
-	//if err != nil {
-	//	return err
-	//}
+	mutex.Lock()
+	res.Turns = b.Turn
+	res.CellCount = b.CellCount
+	mutex.Unlock()
 	return nil
 }
 
 func (b *Broker) GolKey(req gol.Request, res *gol.Response) error {
-	//if req.S {
-	//	mutex.Lock()
-	//	res.Turns = b.Turn
-	//	res.World = copySlice(b.CombinedWorld)
-	//	mutex.Unlock()
-	//} else if req.P {
-	//	mutex.Lock()
-	//	s.Pause = !s.Pause
-	//	mutex.Unlock()
-	//	if !s.Pause {
-	//		s.Resume <- true
-	//	}
-	//} else if req.K {
-	//	os.Exit(0)
-	//}
+	if req.S {
+		mutex.Lock()
+		res.Turns = b.Turn
+		res.World = copySlice(b.CombinedWorld)
+		mutex.Unlock()
+	} else if req.P {
+		mutex.Lock()
+		b.Pause = !b.Pause
+		mutex.Unlock()
+		if !b.Pause {
+			b.Resume <- true
+		}
+	} else if req.K {
+		os.Exit(0)
+	}
 	return nil
 }
 
@@ -151,7 +169,10 @@ func main() {
 		clients[n], _ = rpc.Dial("tcp", addresses[n])
 	}
 	broker := &Broker{
-		Clients: clients,
+		Clients:   clients,
+		Resume:    make(chan bool),
+		Turn:      0,
+		CellCount: 0,
 	}
 	err := rpc.Register(broker)
 	if err != nil {

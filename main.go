@@ -17,7 +17,7 @@ func main() {
 	flag.IntVar(
 		&params.Threads,
 		"t",
-		8,
+		4,
 		"Specify the number of worker threads to use. Defaults to 8.")
 
 	flag.IntVar(

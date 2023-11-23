@@ -140,7 +140,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 	}
 	//send the completed world to ioOutput c
 	mutex.Lock()
-	fmt.Println(len(response.World[0]))
+	//fmt.Println(len(response.World[0]))
 	for i := 0; i < p.ImageHeight; i++ {
 		for j := 0; j < p.ImageWidth; j++ {
 			c.ioOutput <- response.World[i][j]
