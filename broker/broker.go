@@ -26,26 +26,31 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 		responses[i] = make([][]byte, req.Parameter.ImageHeight/req.Parameter.Threads)
 	}
 	for i, client := range b.Clients {
-		req.Start = i * (req.Parameter.ImageHeight / req.Parameter.Threads)
-		req.End = (i + 1) * (req.Parameter.ImageHeight / req.Parameter.Threads)
+		// Calculate start and end for this segment
+		start := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
+		end := (i + 1) * (req.Parameter.ImageHeight / req.Parameter.Threads)
 		if i == req.Parameter.Threads-1 {
-			req.End = req.Parameter.ImageHeight
+			end = req.Parameter.ImageHeight
 		}
 		// Increment the WaitGroup counter
 		wg.Add(1)
-		// Launch a goroutine to make calls to the servers
-		client := client
-		i := i
-		go func() {
-			defer wg.Done() // Decrement the counter when the goroutine completes
-			fmt.Println("function called")
-			client.Call(gol.ProcessGol, req, res)
-			fmt.Println("call completed")
+		// Create a copy of req for each goroutine
+		reqCopy := req
+		reqCopy.Start = start
+		reqCopy.End = end
+		// Launch the goroutine with its own copy of req
+		go func(client *rpc.Client, reqCopy gol.Request, i int) {
+			defer wg.Done()
+			fmt.Println("Goroutine for start:", reqCopy.Start, "end:", reqCopy.End)
+			fmt.Println(i)
+			client.Call(gol.ProcessGol, reqCopy, res)
+			fmt.Println("RPC call completed for start:", reqCopy.Start, "end:", reqCopy.End)
 			responses[i] = res.Slice
 			b.CombinedAliveCells = append(b.CombinedAliveCells, res.AliveCells...)
-			//fmt.Println(len(b.CombinedAliveCells))
-		}()
+			// Other code...
+		}(client, reqCopy, i)
 	}
+
 	// Wait for all goroutines to complete
 	wg.Wait()
 	// Now that all goroutines have completed, you can proceed
@@ -63,8 +68,8 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 	}
 	res.World = b.CombinedWorld
 	res.AliveCells = b.CombinedAliveCells
-	fmt.Println(len(res.World))
-	fmt.Println(len(res.World[0]))
+	//fmt.Println(len(res.World))
+	//fmt.Println(len(res.World[0]))
 	return nil
 }
 

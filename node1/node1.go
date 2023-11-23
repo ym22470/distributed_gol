@@ -36,6 +36,9 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	// TODO: Execute all turns of the Game of Life.
 	fmt.Println(len(req.World[0]) + 3)
 	if req.Parameter.Turns > 0 {
+		fmt.Println("if statement")
+		fmt.Println(req.Start)
+		fmt.Println(req.End)
 		for ; turn < req.Parameter.Turns; turn++ {
 			mutex.Lock()
 			if s.Pause {
@@ -67,6 +70,9 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 			//fmt.Println("turn completed")
 		}
 	} else {
+		fmt.Println("else statement")
+		fmt.Println(req.Start)
+		fmt.Println(req.End)
 		s.Slice = req.World[req.Start:req.End]
 		mutex.Lock()
 		s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
