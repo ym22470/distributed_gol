@@ -20,7 +20,6 @@ type Server struct {
 	Resume    chan bool
 	Pause     bool
 	World     [][]byte
-	Slice     [][]byte
 }
 
 func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
@@ -103,7 +102,7 @@ func copySlice(src [][]byte) [][]byte {
 
 func main() {
 	fmt.Println("Node5")
-	pAddr := flag.String("port", "8051", "port to listen on")
+	pAddr := flag.String("port", "8030", "port to listen on")
 	flag.Parse()
 	//initialise server
 	server := &Server{
