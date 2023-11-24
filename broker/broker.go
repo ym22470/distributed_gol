@@ -105,6 +105,7 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 	}
 	res.World = copySlice(b.CombinedWorld)
 	res.AliveCells = calculateAliveCells(req.Parameter, b.CombinedWorld)
+	res.End = true
 	//fmt.Println(len(res.World))
 	//fmt.Println(len(res.World[0]))
 	return nil
@@ -152,6 +153,17 @@ func (b *Broker) GolKey(req gol.Request, res *gol.Response) error {
 			b.Resume <- true
 		}
 	} else if req.K {
+		for _, client := range b.Clients {
+			wg.Add(1)
+			go func(client *rpc.Client) {
+				defer wg.Done()
+				client.Call(gol.Key, req, res)
+				//fmt.Println("key call finished")
+			}(client)
+			//fmt.Println("for loop")
+		}
+		//wait until all the goroutines finish( all the nodes to quit)
+		wg.Wait()
 		os.Exit(0)
 	}
 	return nil

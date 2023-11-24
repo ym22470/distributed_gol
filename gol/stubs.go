@@ -18,6 +18,7 @@ type Response struct {
 	CompletedTurns int
 	CellCount      int
 	Turns          int
+	End            bool
 }
 
 type Request struct {

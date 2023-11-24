@@ -3,9 +3,12 @@ package gol
 import (
 	"fmt"
 	"net/rpc"
+	"os"
 	"sync"
 	"time"
 )
+
+var wg sync.WaitGroup
 
 type distributorChannels struct {
 	events     chan<- Event
@@ -92,6 +95,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 						c.events <- StateChange{response.Turns, Executing}
 					}
 				case 'k':
+					wg.Add(1)
 					requestkey := Request{S: true}
 					err := client.Call(BrokerKey, requestkey, response)
 					if err != nil {
@@ -104,17 +108,18 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 							c.ioOutput <- response.World[y][x]
 						}
 					}
-					// If the K is called at first, the server will be shut down immediately
 					requestkey = Request{K: true}
 					mutex.Lock()
 					kill = true
 					mutex.Unlock()
 					client.Call(BrokerKey, requestkey, response)
-					c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
 					c.ioCommand <- ioCheckIdle
 					<-c.ioIdle
 					c.events <- StateChange{response.Turns, Quitting}
+					fmt.Println("reached end")
+					wg.Done()
 					quit <- true
+					os.Exit(0)
 				}
 			case <-quit:
 				close(quit)
@@ -123,46 +128,65 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 		}
 	}()
 	client.Call(Initializer, request, response)
-	fmt.Println(len(response.World))
-
-	//send the content of world and receive on the other side(writePgm) concurrently
-	c.ioCommand <- ioOutput
-	// Since the output here is only required when the turns are ran out, so doesn't need the ticker anymore
-	mutex.Lock()
-	pasued = true
-	mutex.Unlock()
-	if p.Turns == 0 {
-		c.ioFilename <- fmt.Sprintf("%dx%dx0", p.ImageHeight, p.ImageWidth)
-	} else if p.Threads == 1 {
-		c.ioFilename <- fmt.Sprintf("%dx%dx%d", p.ImageHeight, p.ImageWidth, p.Turns)
-	} else {
-		c.ioFilename <- fmt.Sprintf("%dx%dx%d-%d", p.ImageHeight, p.ImageWidth, p.Turns, p.Threads)
-	}
-	//send the completed world to ioOutput c
-	mutex.Lock()
-	//fmt.Println(len(response.World[0]))
-	for i := 0; i < p.ImageHeight; i++ {
-		for j := 0; j < p.ImageWidth; j++ {
-			c.ioOutput <- response.World[i][j]
+	//wait until the keypress goroutine finishes
+	wg.Wait()
+	//if the specified last tern is finished, quit with output pgm
+	if response.End {
+		//fmt.Println(len(response.World))
+		//send the content of world and receive on the other side(writePgm) concurrently
+		c.ioCommand <- ioOutput
+		// Since the output here is only required when the turns are ran out, so doesn't need the ticker anymore
+		mutex.Lock()
+		pasued = true
+		mutex.Unlock()
+		if p.Turns == 0 {
+			c.ioFilename <- fmt.Sprintf("%dx%dx0", p.ImageHeight, p.ImageWidth)
+		} else if p.Threads == 1 {
+			c.ioFilename <- fmt.Sprintf("%dx%dx%d", p.ImageHeight, p.ImageWidth, p.Turns)
+		} else {
+			c.ioFilename <- fmt.Sprintf("%dx%dx%d-%d", p.ImageHeight, p.ImageWidth, p.Turns, p.Threads)
 		}
+		//send the completed world to ioOutput c
+		mutex.Lock()
+		//fmt.Println(len(response.World[0]))
+		for i := 0; i < p.ImageHeight; i++ {
+			for j := 0; j < p.ImageWidth; j++ {
+				c.ioOutput <- response.World[i][j]
+			}
+		}
+		mutex.Unlock()
+
+		//report the final state of the world
+		mutex.Lock()
+		c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
+		mutex.Unlock()
+		// Make sure that the Io has finished any output before exiting.
+		fmt.Println("send complete")
+		c.ioCommand <- ioCheckIdle
+		fmt.Println("send complete")
+		fmt.Println(len(response.AliveCells))
+
+		<-c.ioIdle
+		c.events <- StateChange{response.CompletedTurns, Quitting}
+
+		// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
+		close(c.events)
+	} else {
+		mutex.Lock()
+		c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
+		mutex.Unlock()
+		// Make sure that the Io has finished any output before exiting.
+		fmt.Println("send complete")
+		c.ioCommand <- ioCheckIdle
+		fmt.Println("send complete")
+		fmt.Println(len(response.AliveCells))
+
+		<-c.ioIdle
+		c.events <- StateChange{response.CompletedTurns, Quitting}
+
+		// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
+		close(c.events)
 	}
-	mutex.Unlock()
-
-	//report the final state of the world
-	mutex.Lock()
-	c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
-	mutex.Unlock()
-	// Make sure that the Io has finished any output before exiting.
-	fmt.Println("send complete")
-	c.ioCommand <- ioCheckIdle
-	fmt.Println("send complete")
-	fmt.Println(len(response.AliveCells))
-
-	<-c.ioIdle
-	c.events <- StateChange{response.CompletedTurns, Quitting}
-
-	// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
-	close(c.events)
 }
 
 func distributor(p Params, c distributorChannels) {

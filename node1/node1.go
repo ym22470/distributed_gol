@@ -101,19 +101,7 @@ func (s *Server) CountAliveCell(req gol.Request, res *gol.Response) error {
 }
 
 func (s *Server) KeyGol(req gol.Request, res *gol.Response) error {
-	if req.S {
-		mutex.Lock()
-		res.Turns = s.Turn
-		res.World = s.World
-		mutex.Unlock()
-	} else if req.P {
-		mutex.Lock()
-		s.Pause = !s.Pause
-		mutex.Unlock()
-		if !s.Pause {
-			s.Resume <- true
-		}
-	} else if req.K {
+	if req.K {
 		os.Exit(0)
 	}
 	return nil
