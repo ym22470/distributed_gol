@@ -63,7 +63,7 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 		//fmt.Println("turn completed")
 		//count the number of cells and turns
 		mutex.Lock()
-		s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
+		//s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
 		s.Turn++
 		mutex.Unlock()
 		//}
@@ -73,7 +73,7 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 		fmt.Println(req.End)
 		s.Slice = req.World[req.Start:req.End]
 		mutex.Lock()
-		s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
+		//s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
 		mutex.Unlock()
 	}
 	//case when the resquest turn is 0
@@ -85,17 +85,9 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	fmt.Println(len(s.Slice))
 	res.Slice = s.Slice
 	//datarace here, need mutex lock
-	res.AliveCells = calculateAliveCells(req.Parameter, s.Slice)
+	//res.AliveCells = calculateAliveCells(req.Parameter, s.Slice)
 	fmt.Println(len(res.AliveCells))
-	res.CompletedTurns++
-	mutex.Unlock()
-	return nil
-}
-
-func (s *Server) CountAliveCell(req gol.Request, res *gol.Response) error {
-	mutex.Lock()
-	res.Turns = s.Turn
-	res.CellCount = s.CellCount
+	//res.CompletedTurns++
 	mutex.Unlock()
 	return nil
 }

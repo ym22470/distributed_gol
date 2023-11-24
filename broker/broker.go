@@ -100,8 +100,10 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 				}
 			}
 			//update the current state of the turn
-			b.Turn = turn
+			mutex.Lock()
+			b.Turn++
 			b.CellCount = len(calculateAliveCells(req.Parameter, b.CombinedWorld))
+			mutex.Unlock()
 		}
 	}
 	//update the finishing state

@@ -26,18 +26,10 @@ type Server struct {
 func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	//fmt.Println(req.Parameter.Turns)
 	s.Turn = 0
-	//turn := 0
 	s.Resume = make(chan bool)
 	mutex.Lock()
 	s.World = copySlice(req.World)
 	mutex.Unlock()
-	//mutex.Lock()
-	//if s.Pause {
-	//	mutex.Unlock()
-	//	<-s.Resume
-	//} else {
-	//	mutex.Unlock()
-	//}
 	//fmt.Println("turn completed")
 	//fmt.Println(req.Parameter.Turns)
 	// TODO: Execute all turns of the Game of Life.
@@ -47,7 +39,6 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 		fmt.Println(req.Parameter.Turns)
 		fmt.Println(req.Start)
 		fmt.Println(req.End)
-		//for ; turn < req.Parameter.Turns; turn++ {
 		mutex.Lock()
 		if s.Pause {
 			mutex.Unlock()
@@ -72,10 +63,9 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 		//fmt.Println("turn completed")
 		//count the number of cells and turns
 		mutex.Lock()
-		s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
+		//s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
 		s.Turn++
 		mutex.Unlock()
-		//fmt.Println("turn completed")
 		//}
 	} else {
 		fmt.Println("else statement")
@@ -83,7 +73,7 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 		fmt.Println(req.End)
 		s.Slice = req.World[req.Start:req.End]
 		mutex.Lock()
-		s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
+		//s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
 		mutex.Unlock()
 	}
 	//case when the resquest turn is 0
@@ -95,17 +85,9 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	fmt.Println(len(s.Slice))
 	res.Slice = s.Slice
 	//datarace here, need mutex lock
-	res.AliveCells = calculateAliveCells(req.Parameter, s.Slice)
+	//res.AliveCells = calculateAliveCells(req.Parameter, s.Slice)
 	fmt.Println(len(res.AliveCells))
-	res.CompletedTurns++
-	mutex.Unlock()
-	return nil
-}
-
-func (s *Server) CountAliveCell(req gol.Request, res *gol.Response) error {
-	mutex.Lock()
-	res.Turns = s.Turn
-	res.CellCount = s.CellCount
+	//res.CompletedTurns++
 	mutex.Unlock()
 	return nil
 }

@@ -73,7 +73,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 					// requestkey := Request{Q: true}
 					// TODO: q function
 					// client.Call(Key, requestkey, response)
-					c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
+					c.events <- FinalTurnComplete{CompletedTurns: response.Turns, Alive: response.AliveCells}
 					c.ioCommand <- ioCheckIdle
 					<-c.ioIdle
 					c.events <- StateChange{response.Turns, Quitting}
@@ -157,7 +157,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 
 		//report the final state of the world
 		mutex.Lock()
-		c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
+		c.events <- FinalTurnComplete{CompletedTurns: response.Turns, Alive: response.AliveCells}
 		mutex.Unlock()
 		// Make sure that the Io has finished any output before exiting.
 		fmt.Println("send complete")
@@ -166,13 +166,13 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 		fmt.Println(len(response.AliveCells))
 
 		<-c.ioIdle
-		c.events <- StateChange{response.CompletedTurns, Quitting}
+		c.events <- StateChange{response.Turns, Quitting}
 
 		// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
 		close(c.events)
 	} else {
 		mutex.Lock()
-		c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
+		c.events <- FinalTurnComplete{CompletedTurns: response.Turns, Alive: response.AliveCells}
 		mutex.Unlock()
 		// Make sure that the Io has finished any output before exiting.
 		fmt.Println("send complete")
@@ -181,7 +181,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 		fmt.Println(len(response.AliveCells))
 
 		<-c.ioIdle
-		c.events <- StateChange{response.CompletedTurns, Quitting}
+		c.events <- StateChange{response.Turns, Quitting}
 
 		// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
 		close(c.events)
