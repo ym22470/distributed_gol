@@ -4,16 +4,16 @@ import (
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
-var BrokerAliveCells = "Broker.GolAliveCells"
+var BrokerAliveCells = "Broker.CountAliveCell"
 var BrokerGol = "Broker.ProcessWorld"
-var BrokerKey = "Broker.GolKey"
+var BrokerKey = "Broker.KeyGol"
 var Key = "Server.KeyGol"
 var ProcessGol = "Server.ProcessWorld"
 var AliveCells = "Server.CountAliveCell"
+var Shutdown = "Server.Shutdown"
 
 type Response struct {
-	World [][]byte
-	// Slice          [][]byte
+	World          [][]byte
 	AliveCells     []util.Cell
 	CompletedTurns int
 	CellCount      int

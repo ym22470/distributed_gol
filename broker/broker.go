@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"log"
 	"net"
 	"net/rpc"
 	"os"
@@ -12,139 +14,243 @@ import (
 )
 
 var mutex sync.Mutex
+var servers = []string{
+	"127.0.0.1:8040",
+	"127.0.0.1:8051",
+	// "127.0.0.1:8052",
+	// "127.0.0.1:8053",
+}
+var clients = make([]*rpc.Client, len(servers))
 
-// var wg sync.WaitGroup
-
+// Create a RPC service that contains various
 type Broker struct {
-	Clients    []*rpc.Client
-	World      [][]byte
-	AliveCells []util.Cell
-	Turn       int
-	Resume     chan bool
-	Pause      bool
-	CellCount  int
+	Turn      int
+	CellCount int
+	Resume    chan bool
+	Pause     bool
+	World     [][]byte
+	Client    []string
 }
 
-func (b *Broker) ProcessWorld(req gol.Request, res *gol.Response) error {
-	// responses := make([][][]byte, len(b.Clients))
-	// for i := 0; i < len(b.Clients); i++ {
-	// 	responses[i] = make([][]byte, req.Parameter.ImageHeight)
-	// 	for j := range responses[i] {
-	// 		responses[i][j] = make([]byte, req.Parameter.ImageWidth)
-	// 	}
-	// }
-	// res.World = make([][]byte, req.Parameter.ImageHeight)
-	// for i := range res.World {
-	// 	res.World[i] = make([]byte, req.Parameter.ImageWidth)
-	// }
-	res.World = make([][]byte, req.Parameter.ImageHeight)
-	for i := range res.World {
-		res.World[i] = make([]byte, req.Parameter.ImageWidth)
-	}
-	req.Parameter.Threads = len(b.Clients)
-	b.Turn = 0
-	//turn := 0
-	b.Resume = make(chan bool)
+func (s *Broker) ProcessWorld(req gol.Request, res *gol.Response) error {
+	//fmt.Println("Into broker")
+	s.Turn = 0
+	turn := 0
+	s.Resume = make(chan bool)
 	mutex.Lock()
-	b.World = make([][]byte, req.Parameter.ImageHeight)
-	for i := range b.World {
-		b.World[i] = make([]byte, req.Parameter.ImageWidth)
-	}
-	//b.World = copySlice(req.World)
+	s.World = copySlice(req.World)
 	mutex.Unlock()
 	// TODO: Execute all turns of the Game of Life.
-	//fmt.Println("the req turns is", req.Parameter.Turns)
-	finish := make(chan bool, 1)
-	if req.Parameter.Turns == 0 {
-		//res.World = req.World
-		b.World = copySlice(req.World)
-	} else {
-		for turn := 0; turn < req.Parameter.Turns; turn++ {
-			// var wg sync.WaitGroup
-			mutex.Lock()
-			if b.Pause {
-				mutex.Unlock()
-				<-b.Resume
-			} else {
-				mutex.Unlock()
-			}
-			for i, client := range b.Clients {
-				req.Start = i * (req.Parameter.ImageHeight / req.Parameter.Threads)
-				req.End = (i + 1) * (req.Parameter.ImageHeight / req.Parameter.Threads)
-				if i == req.Parameter.Threads-1 {
-					req.End = req.Parameter.ImageHeight
-				}
-				client := client
-				i := i
-				worldCopy := copySlice(b.World)
-				go func() {
-					reqSlice := gol.Request{World: worldCopy, Start: req.Start, End: req.End}
-					client.Call(gol.ProcessGol, reqSlice, res)
-					//responses[i] = res.World
-					start := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
-					end := (i + 1) * (req.Parameter.ImageHeight / req.Parameter.Threads)
-					if i == req.Parameter.Threads-1 {
-						end = req.Parameter.ImageHeight
-					}
-					mutex.Lock()
-					for i := start; i < end; i++ {
-						copy(req.World[i], res.World[i-start])
-					}
-					mutex.Unlock()
-					finish <- true
-				}()
-				mutex.Lock()
-				b.World = copySlice(req.World)
-				mutex.Unlock()
-			}
-			for i := 0; i < req.Parameter.Threads; i++ {
-				<-finish
-			}
-			mutex.Lock()
-			//b.World = copySlice(req.World)
-			//req.World = copySlice(b.World)
-			//fmt.Println(len(b.World))
-			b.CellCount = len(calculateAliveCells(req.Parameter, b.World))
-			b.Turn++
+	for ; turn < req.Parameter.Turns; turn++ {
+		mutex.Lock()
+		if s.Pause {
+			mutex.Unlock()
+			<-s.Resume
+		} else {
 			mutex.Unlock()
 		}
+
+		// Number of the servers
+		numOfServers := 2
+		//req.Parameter.Threads = 1
+		if numOfServers == 1 {
+			s.World = nextState(req.Parameter, s.World, 0, req.Parameter.ImageHeight)
+		} else {
+			//req.Parameter.Threads = 1
+			result := make(chan [][]byte)
+			//for i := 0; i < req.Parameter.Threads; i++ {
+			// a := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
+			// b := (i + 1) * (req.Parameter.ImageHeight / req.Parameter.Threads)
+			// if i == req.Parameter.Threads-1 {
+			// 	b = req.Parameter.ImageHeight
+			// }
+			//to handle data race condition by passing a copy of world to goroutines
+			mutex.Lock()
+			worldCopy := copySlice(s.World)
+			mutex.Unlock()
+			go workers(req.Parameter, worldCopy, result, 0, req.Parameter.ImageHeight)
+			temp := <-result
+			req.World = copySlice(temp)
+			//}
+		}
+		mutex.Lock()
+		s.World = copySlice(req.World)
+		s.CellCount = len(calculateAliveCells(req.Parameter, s.World))
+		s.Turn++
+		mutex.Unlock()
 	}
 	//send the finished world and AliveCells to respond
 	mutex.Lock()
-	res.World = copySlice(b.World)
-	res.AliveCells = calculateAliveCells(req.Parameter, b.World)
-	res.CompletedTurns = b.Turn
+	res.World = copySlice(s.World)
+	res.AliveCells = calculateAliveCells(req.Parameter, res.World)
+	res.CompletedTurns = turn
 	mutex.Unlock()
 	return nil
 }
 
-func (b *Broker) CountAliveCell(req gol.Request, res *gol.Response) error {
+func (s *Broker) CountAliveCell(req gol.Request, res *gol.Response) error {
 	mutex.Lock()
-	res.Turns = b.Turn
-	res.CellCount = b.CellCount
+	res.Turns = s.Turn
+	res.CellCount = s.CellCount
 	mutex.Unlock()
 	return nil
 }
 
-func (b *Broker) KeyGol(req gol.Request, res *gol.Response) error {
+func (s *Broker) KeyGol(req gol.Request, res *gol.Response) error {
 	if req.S {
 		mutex.Lock()
-		res.Turns = b.Turn
-		res.World = copySlice(b.World)
+		res.Turns = s.Turn
+		res.World = s.World
 		mutex.Unlock()
 	} else if req.P {
 		mutex.Lock()
-		b.Pause = !b.Pause
+		s.Pause = !s.Pause
 		mutex.Unlock()
-		if !b.Pause {
-			b.Resume <- true
+		if !s.Pause {
+			s.Resume <- true
 		}
 	} else if req.K {
+		var wg sync.WaitGroup
+		// node quit
+		// wg.Add(1)
+		for i, server := range servers {
+			wg.Add(1)
+			client, err := rpc.Dial("tcp", server)
+			if err != nil {
+				log.Fatalf("Failed to connect to server %s: %v", server, err)
+				defer client.Close()
+			}
+			clients[i] = client
+			client.Call(gol.Shutdown, new(gol.Request), new(gol.Response))
+			defer client.Close()
+			wg.Done()
+		}
+		wg.Wait()
 		os.Exit(0)
 	}
 	return nil
 }
 
+func nextState(p gol.Params, world [][]byte, start, end int) [][]byte {
+	// allocate space
+	nextWorld := make([][]byte, end-start)
+	for i := range nextWorld {
+		nextWorld[i] = make([]byte, p.ImageWidth)
+	}
+
+	directions := [8][2]int{
+		{-1, -1}, {-1, 0}, {-1, 1},
+		{0, -1}, {0, 1},
+		{1, -1}, {1, 0}, {1, 1},
+	}
+
+	for row := start; row < end; row++ {
+		for col := 0; col < p.ImageWidth; col++ {
+			// the alive must be set to 0 everytime when it comes to a different position
+			alive := 0
+			for _, dir := range directions {
+				// + imageHeight make sure the image is connected
+				newRow, newCol := (row+dir[0]+p.ImageHeight)%p.ImageHeight, (col+dir[1]+p.ImageWidth)%p.ImageWidth
+				if world[newRow][newCol] == 255 {
+					alive++
+				}
+			}
+			if world[row][col] == 255 {
+				if alive < 2 || alive > 3 {
+					nextWorld[row-start][col] = 0
+				} else {
+					nextWorld[row-start][col] = 255
+				}
+			} else if world[row][col] == 0 {
+				if alive == 3 {
+					nextWorld[row-start][col] = 255
+				} else {
+					nextWorld[row-start][col] = 0
+				}
+			}
+		}
+	}
+	return nextWorld
+}
+
+func workers(p gol.Params, world [][]byte, result chan<- [][]byte, start, end int) {
+	fmt.Println("go worker")
+	worldPiece := copySlice(world)
+	// server1 := "127.0.0.1:8040"
+	// client1, _ := rpc.Dial("tcp", server1)
+	// server2 := "127.0.0.1:8051"
+	// client2, _ := rpc.Dial("tcp", server2)
+	// defer client1.Close()
+	// defer client2.Close()
+	// // req := new(gol.Request)
+	// // req.World = copySlice(world)
+	// // req.Start = 0
+	// // req.End = p.ImageHeight
+	// // req.Parameter = p
+	// // res := new(gol.Response)
+	// // client1.Call(gol.ProcessGol, req, res)
+	// // worldPiece = copySlice(res.World)
+	// req := new(gol.Request)
+	// req.World = copySlice(world)
+	// req.Start = 0 * (p.ImageHeight / 2)
+	// req.End = 1 * (p.ImageHeight / 2)
+	// req.Parameter = p
+	// res := new(gol.Response)
+	// client1.Call(gol.ProcessGol, req, res)
+	// for i := 0; i < req.End; i++ {
+	// 	copy(worldPiece[i], res.World[i])
+	// }
+	// req2 := new(gol.Request)
+	// req2.World = copySlice(world)
+	// req2.Start = 1 * (p.ImageHeight / 2)
+	// req2.End = 2 * (p.ImageHeight / 2)
+	// req2.Parameter = p
+	// res2 := new(gol.Response)
+	// client2.Call(gol.ProcessGol, req2, res2)
+	// for i := req2.Start; i < req2.End; i++ {
+	// 	copy(worldPiece[i], res2.World[i-req2.Start])
+	// }
+	// servers := []string{
+	// 	"127.0.0.1:8040",
+	// 	"127.0.0.1:8051",
+	// 	// "127.0.0.1:8052",
+	// 	// "127.0.0.1:8053",
+	// }
+	//clients := make([]*rpc.Client, len(servers))
+	for i, server := range servers {
+		client, err := rpc.Dial("tcp", server)
+		if err != nil {
+			log.Fatalf("Failed to connect to server %s: %v", server, err)
+		}
+		defer client.Close()
+		clients[i] = client
+	}
+	// Process the world in pieces
+	for i, client := range clients {
+		req := new(gol.Request)
+		req.World = copySlice(world)
+		req.Start = i * (p.ImageHeight / len(clients))
+		req.End = (i + 1) * (p.ImageHeight / len(clients))
+		if i == len(clients)-1 {
+			req.End = p.ImageHeight
+		}
+		req.Parameter = p
+
+		res := new(gol.Response)
+		err := client.Call(gol.ProcessGol, req, res)
+		defer client.Close()
+		if err != nil {
+			log.Fatalf("Failed to process world: %v", err)
+		}
+
+		for j := req.Start; j < req.End; j++ {
+			copy(worldPiece[j], res.World[j-req.Start])
+		}
+	}
+	//worldPiece := nextState(p, world, start, end)
+	result <- worldPiece
+	close(result)
+}
 func copySlice(src [][]byte) [][]byte {
 	dst := make([][]byte, len(src))
 	for i := range src {
@@ -167,26 +273,24 @@ func calculateAliveCells(p gol.Params, world [][]byte) []util.Cell {
 }
 
 func main() {
-	addresses := []string{
-		"127.0.0.1:8040",
-		"127.0.0.1:8050",
-		//"127.0.0.1:8060",
-		//"127.0.0.1:8070",
+	pAddr := flag.String("port", "8030", "port to listen on")
+	flag.Parse()
+	//initialise server
+	server := &Broker{
+		Resume:    make(chan bool),
+		Turn:      0,
+		CellCount: 0,
 	}
-	clients := make([]*rpc.Client, 2)
-	for n := 0; n < 2; n++ {
-		clients[n], _ = rpc.Dial("tcp", addresses[n])
-	}
-	broker := &Broker{
-		Clients: clients,
-	}
-	err := rpc.Register(broker)
+	err := rpc.Register(server)
 	if err != nil {
 		return
 	}
-	pAddr := flag.String("port", "8030", "port to listen on")
-	//create a listener to listen to the distributor on the port
 	listener, _ := net.Listen("tcp", ":"+*pAddr)
-	defer listener.Close()
+	defer func(listener net.Listener) {
+		err := listener.Close()
+		if err != nil {
+
+		}
+	}(listener)
 	rpc.Accept(listener)
 }

@@ -122,13 +122,9 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 			}
 		}
 	}()
-	response.World = make([][]byte, p.ImageHeight)
-	for i := range response.World {
-		response.World[i] = make([]byte, p.ImageWidth)
-	}
 	client.Call(BrokerGol, request, response)
 	//fmt.Println(len(response.World))
-	//world = copySlice(response.World)
+	world = copySlice(response.World)
 
 	// response.World = copySlice(world)
 	//send the content of world and receive on the other side(writePgm) concurrently
@@ -143,7 +139,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 	// fmt.Println(len(response.World[0]))
 	for i := 0; i < p.ImageHeight; i++ {
 		for j := 0; j < p.ImageWidth; j++ {
-			c.ioOutput <- response.World[i][j]
+			c.ioOutput <- world[i][j]
 		}
 	}
 	mutex.Unlock()
