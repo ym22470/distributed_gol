@@ -47,7 +47,6 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 			} else {
 				mutex.Unlock()
 			}
-
 		}
 	}()
 

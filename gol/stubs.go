@@ -9,7 +9,6 @@ var Initializer = "Broker.GolInitializer"
 var BrokerKey = "Broker.GolKey"
 var Key = "Server.KeyGol"
 var ProcessGol = "Server.ProcessWorld"
-var AliveCells = "Server.CountAliveCell"
 
 type Response struct {
 	World          [][]byte

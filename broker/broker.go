@@ -99,15 +99,15 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 					mutex.Unlock()
 				}
 			}
+			//update the current state of the turn
 			b.Turn = turn
 			b.CellCount = len(calculateAliveCells(req.Parameter, b.CombinedWorld))
 		}
 	}
+	//update the finishing state
 	res.World = copySlice(b.CombinedWorld)
 	res.AliveCells = calculateAliveCells(req.Parameter, b.CombinedWorld)
 	res.End = true
-	//fmt.Println(len(res.World))
-	//fmt.Println(len(res.World[0]))
 	return nil
 }
 
