@@ -19,13 +19,14 @@ type Broker struct {
 	Resume             chan bool
 	Turn               int
 	CellCount          int
+	Nodes              int
 	Clients            []*rpc.Client
 	CombinedWorld      [][]byte
 	CombinedAliveCells []util.Cell
 }
 
 func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
-	//reset after each call
+	//reset global variables in the struct at the beginning of each call
 	b.Resume = make(chan bool)
 	b.CombinedWorld = [][]byte{}
 	turn := 0
@@ -51,13 +52,13 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 			responses := make([][][]byte, len(b.Clients))
 			// Initialize each slice in responses to prevent index out of range error
 			for i := range responses {
-				responses[i] = make([][]byte, req.Parameter.ImageHeight/req.Parameter.Threads)
+				responses[i] = make([][]byte, req.Parameter.ImageHeight/b.Nodes)
 			}
 			for i, client := range b.Clients {
 				// Calculate start and end for this segment
-				start := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
-				end := (i + 1) * (req.Parameter.ImageHeight / req.Parameter.Threads)
-				if i == req.Parameter.Threads-1 {
+				start := i * (req.Parameter.ImageHeight / b.Nodes)
+				end := (i + 1) * (req.Parameter.ImageHeight / b.Nodes)
+				if i == b.Nodes-1 {
 					end = req.Parameter.ImageHeight
 				}
 				// Increment the WaitGroup counter
@@ -87,15 +88,15 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 			// Now that all goroutines have completed, you can proceed
 			// Assemble all the strips together
 			b.CombinedWorld = req.World
-			for i := 0; i < req.Parameter.Threads; i++ {
+			for i := 0; i < b.Nodes; i++ {
 				fmt.Println("inside loop")
-				fmt.Println(req.Parameter.Threads)
+				fmt.Println(b.Nodes)
 				fmt.Println(len(responses))
 				strip := responses[i]
-				startRow := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
+				startRow := i * (req.Parameter.ImageHeight / b.Nodes)
 				for r, row := range strip {
 					mutex.Lock()
-					req.World[startRow+r] = row
+					b.CombinedWorld[startRow+r] = row
 					mutex.Unlock()
 				}
 			}
@@ -187,6 +188,7 @@ func main() {
 		Resume:    make(chan bool),
 		Turn:      0,
 		CellCount: 0,
+		Nodes:     4,
 	}
 	err := rpc.Register(broker)
 	if err != nil {

@@ -79,7 +79,7 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	mutex.Lock()
 	res.World = s.World
 	res.AliveCells = calculateAliveCells(req.Parameter, s.World)
-	res.CompletedTurns = turn
+	res.Turns = turn
 	mutex.Unlock()
 	return nil
 }

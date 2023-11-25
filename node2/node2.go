@@ -46,28 +46,74 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 		} else {
 			mutex.Unlock()
 		}
-		chans := make(chan [][]byte)
-		mutex.Lock()
-		//fmt.Println(len(req.World[0]) + 2)
-		worldCopy := copySlice(s.World)
-		//fmt.Println(len(worldCopy[0]) + 1)
-		mutex.Unlock()
-		go workers(req.Parameter, worldCopy, chans, req.Start, req.End)
-		fmt.Println("turn completed")
-		strip := <-chans
-		//fmt.Println("turn completed")
-		mutex.Lock()
-		//fmt.Println(len(strip[0]))
-		s.Slice = copySlice(strip)
-		mutex.Unlock()
-		//fmt.Println("turn completed")
-		//count the number of cells and turns
-		mutex.Lock()
-		//s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
-		s.Turn++
-		mutex.Unlock()
-		//}
+		if req.Parameter.Threads == 1 {
+			chans := make(chan [][]byte)
+			mutex.Lock()
+			//fmt.Println(len(req.World[0]) + 2)
+			worldCopy := copySlice(s.World)
+			//fmt.Println(len(worldCopy[0]) + 1)
+			mutex.Unlock()
+			go workers(req.Parameter, worldCopy, chans, req.Start, req.End)
+			fmt.Println("turn completed")
+			strip := <-chans
+			//fmt.Println("turn completed")
+			mutex.Lock()
+			//fmt.Println(len(strip[0]))
+			s.Slice = copySlice(strip)
+			mutex.Unlock()
+			//fmt.Println("turn completed")
+			//count the number of cells and turns
+			mutex.Lock()
+			//s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
+			s.Turn++
+			mutex.Unlock()
+			//}
+		} else {
+			sliceHeight := req.End - req.Start
+			chans := make([]chan [][]byte, req.Parameter.Threads)
+			for i := 0; i < req.Parameter.Threads; i++ {
+				chans[i] = make(chan [][]byte)
+				// calculate the starting and ending point of the slice
+				a := i * (sliceHeight / req.Parameter.Threads)
+				b := (i + 1) * (sliceHeight / req.Parameter.Threads)
+				// in case of incomplete division, set the ending point of the last thread to the last line
+				if i == req.Parameter.Threads-1 {
+					b = sliceHeight
+				}
+				//to handle data race condition by passing a copy of world to goroutines
+				mutex.Lock()
+				worldCopy := copySlice(s.World)
+				mutex.Unlock()
+				go workers(req.Parameter, worldCopy, chans[i], a, b)
+
+			}
+			//combine all the strips produced by workers
+			for i := 0; i < req.Parameter.Threads; i++ {
+				strip := <-chans[i]
+				startRow := i * (sliceHeight / req.Parameter.Threads)
+				for r, row := range strip {
+					mutex.Lock()
+					//replace each line of the old world by a new row
+					req.World[startRow+r] = row
+					mutex.Unlock()
+				}
+			}
+			mutex.Lock()
+			//copy the top slice to s.Slice
+			s.Slice = copySlice(req.World[0:req.Parameter.Threads])
+			mutex.Unlock()
+			mutex.Lock()
+			//s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
+			s.Turn++
+			mutex.Unlock()
+		}
 	} else {
+		if s.Pause {
+			mutex.Unlock()
+			<-s.Resume
+		} else {
+			mutex.Unlock()
+		}
 		fmt.Println("else statement")
 		fmt.Println(req.Start)
 		fmt.Println(req.End)
