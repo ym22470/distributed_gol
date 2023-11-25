@@ -23,15 +23,12 @@ type Server struct {
 }
 
 func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
-	fmt.Println("Into PW in node 5")
-	worldPiece := nextState(req.Parameter, req.World, req.Start, req.End)
+	//fmt.Println("Into PW in node 5")
+	worldPiece := nextState(req.Parameter, req.World, 1, req.End-req.Start)
 	res.World = make([][]byte, req.End-req.Start)
 	for i := range res.World {
 		res.World[i] = make([]byte, req.Parameter.ImageWidth)
-	}
-
-	for i := req.Start; i < req.End; i++ {
-		copy(res.World[i-req.Start], worldPiece[i-req.Start])
+		copy(res.World[i], worldPiece[i])
 	}
 	return nil
 }
@@ -51,7 +48,7 @@ func (s *Server) Shutdown(req gol.Request, res *gol.Response) error {
 
 func nextState(p gol.Params, world [][]byte, start, end int) [][]byte {
 	// allocate space
-	nextWorld := make([][]byte, end-start)
+	nextWorld := make([][]byte, end-start+1)
 	for i := range nextWorld {
 		nextWorld[i] = make([]byte, p.ImageWidth)
 	}
@@ -62,7 +59,7 @@ func nextState(p gol.Params, world [][]byte, start, end int) [][]byte {
 		{1, -1}, {1, 0}, {1, 1},
 	}
 
-	for row := start; row < end; row++ {
+	for row := start; row < end+1; row++ {
 		for col := 0; col < p.ImageWidth; col++ {
 			// the alive must be set to 0 everytime when it comes to a different position
 			alive := 0

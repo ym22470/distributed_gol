@@ -88,6 +88,14 @@ func (s *Broker) CountAliveCell(req gol.Request, res *gol.Response) error {
 	return nil
 }
 
+func (s *Broker) GetLive(req gol.Request, res *gol.Response) error {
+	mutex.Lock()
+	res.World = copySlice(s.World)
+	res.Turns = s.Turn
+	mutex.Unlock()
+	return nil
+}
+
 func (s *Broker) KeyGol(req gol.Request, res *gol.Response) error {
 	if req.S {
 		mutex.Lock()
@@ -178,11 +186,38 @@ func workers(p gol.Params, world [][]byte, result chan<- [][]byte, start, end in
 	// Process the world in pieces
 	for i, client := range clients {
 		req := new(gol.Request)
-		req.World = copySlice(world)
-		req.Start = i * (p.ImageHeight / len(clients))
-		req.End = (i + 1) * (p.ImageHeight / len(clients))
+		req.Parameter = p
+		//req.World = copySlice(world)
+		haloSize := p.ImageHeight / len(clients)
+		req.Start = i * haloSize
+		req.End = (i + 1) * haloSize
+		// req.Start = 1
+		// req.End = haloSize
 		if i == len(clients)-1 {
 			req.End = p.ImageHeight
+		}
+
+		// Process the world with halo rows
+		req.World = make([][]byte, haloSize+2)
+		for k := range req.World {
+			req.World[k] = make([]byte, req.Parameter.ImageWidth)
+		}
+		for j := 0; j < len(req.World)-2; j++ {
+			copy(req.World[j+1], world[i*haloSize+j])
+		}
+
+		// Halo above
+		if i == 0 {
+			copy(req.World[0], world[req.Parameter.ImageHeight-1])
+		} else {
+			copy(req.World[0], world[i*haloSize-1])
+		}
+
+		// Halo below
+		if i == len(clients)-1 {
+			copy(req.World[len(req.World)-1], world[0])
+		} else {
+			copy(req.World[len(req.World)-1], world[(i+1)*haloSize])
 		}
 		req.Parameter = p
 
@@ -193,7 +228,11 @@ func workers(p gol.Params, world [][]byte, result chan<- [][]byte, start, end in
 			log.Fatalf("Failed to process world: %v", err)
 		}
 
+		// Get rid of the halo rows
 		for j := req.Start; j < req.End; j++ {
+			// fmt.Println("res: ", res.World[j-req.Start])
+			// fmt.Println(j)
+			// fmt.Println("piece: ", worldPiece[j])
 			copy(worldPiece[j], res.World[j-req.Start])
 		}
 	}

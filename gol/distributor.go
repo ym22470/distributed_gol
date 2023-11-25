@@ -47,31 +47,28 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 		}
 	}()
 
-	// newTicker := time.NewTicker(2 * time.Millisecond)
-	// defer newTicker.Stop()
-	// oldWorld := copySlice(world)
-	// go func() {
-	// 	for range newTicker.C {
-	// 		request := Request{World: oldWorld}
-	// 		err := client.Call(Live, request, response)
-	// 		defer client.Close()
-	// 		if err != nil {
-	// 			fmt.Println(err)
-	// 		}
-	// 		for j := 0; j < p.ImageHeight; j++ {
-	// 			for k := 0; k < p.ImageWidth; k++ {
-	// 				if oldWorld[j][k] != response.World[j][k] {
-	// 					//fmt.Println(response.Turns)
-	// 					mutex.Lock()
-	// 					//fmt.Println(k, j)
-	// 					c.events <- CellFlipped{CompletedTurns: response.Turns, Cell: util.Cell{X: k, Y: j}}
-	// 					mutex.Unlock()
-	// 				}
-	// 			}
-	// 		}
-	// 		oldWorld = copySlice(response.World)
-	// 	}
-	// }()
+	newTicker := time.NewTicker(50 * time.Millisecond)
+	defer newTicker.Stop()
+	oldWorld := copySlice(world)
+	go func() {
+		for range newTicker.C {
+			request := Request{World: oldWorld}
+			err := client.Call(Live, request, response)
+			defer client.Close()
+			if err != nil {
+				fmt.Println(err)
+			}
+			for j := 0; j < p.ImageHeight; j++ {
+				for k := 0; k < p.ImageWidth; k++ {
+					if oldWorld[j][k] != response.World[j][k] {
+						c.events <- CellFlipped{CompletedTurns: response.Turns, Cell: util.Cell{X: k, Y: j}}
+					}
+				}
+			}
+			oldWorld = copySlice(response.World)
+			c.events <- TurnComplete{response.CompletedTurns}
+		}
+	}()
 
 	quit := make(chan bool)
 	go func() {
