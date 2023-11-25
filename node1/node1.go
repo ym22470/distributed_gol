@@ -29,7 +29,6 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	for i := range res.World {
 		res.World[i] = make([]byte, req.Parameter.ImageWidth)
 	}
-	//res.World = copySlice(worldPiece)
 	for i := req.Start; i < req.End; i++ {
 		copy(res.World[i-req.Start], worldPiece[i-req.Start])
 	}
@@ -102,7 +101,7 @@ func copySlice(src [][]byte) [][]byte {
 
 func main() {
 	fmt.Println("Node3")
-	pAddr := flag.String("port", "8030", "port to listen on")
+	pAddr := flag.String("port", "8040", "port to listen on")
 	flag.Parse()
 	//initialise server
 	server := &Server{

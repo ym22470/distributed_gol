@@ -11,6 +11,7 @@ var Key = "Server.KeyGol"
 var ProcessGol = "Server.ProcessWorld"
 var AliveCells = "Server.CountAliveCell"
 var Shutdown = "Server.Shutdown"
+var Live = "Broker.GetLive"
 
 type Response struct {
 	World          [][]byte
@@ -18,6 +19,7 @@ type Response struct {
 	CompletedTurns int
 	CellCount      int
 	Turns          int
+	Cells          util.Cell
 }
 
 type Request struct {
@@ -30,4 +32,8 @@ type Request struct {
 	Resume    bool
 	Start     int
 	End       int
+	Turn      int
+	OldWorld  [][]byte
+	NewWorld  [][]byte
+	Cell      util.Cell
 }

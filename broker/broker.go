@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net"
 	"net/rpc"
@@ -15,10 +14,10 @@ import (
 
 var mutex sync.Mutex
 var servers = []string{
-	// "127.0.0.1:8040",
-	"34.229.134.5:8030",
-	// "127.0.0.1:8051",
-	"52.91.39.210:8030",
+	"127.0.0.1:8040",
+	// "34.201.147.188:8030",
+	"127.0.0.1:8051",
+	// "54.242.29.84:8030",
 	// "127.0.0.1:8052",
 	// "127.0.0.1:8053",
 }
@@ -35,7 +34,6 @@ type Broker struct {
 }
 
 func (s *Broker) ProcessWorld(req gol.Request, res *gol.Response) error {
-	//fmt.Println("Into broker")
 	s.Turn = 0
 	turn := 0
 	s.Resume = make(chan bool)
@@ -54,18 +52,10 @@ func (s *Broker) ProcessWorld(req gol.Request, res *gol.Response) error {
 
 		// Number of the servers
 		numOfServers := 2
-		//req.Parameter.Threads = 1
 		if numOfServers == 1 {
 			s.World = nextState(req.Parameter, s.World, 0, req.Parameter.ImageHeight)
 		} else {
-			//req.Parameter.Threads = 1
 			result := make(chan [][]byte)
-			//for i := 0; i < req.Parameter.Threads; i++ {
-			// a := i * (req.Parameter.ImageHeight / req.Parameter.Threads)
-			// b := (i + 1) * (req.Parameter.ImageHeight / req.Parameter.Threads)
-			// if i == req.Parameter.Threads-1 {
-			// 	b = req.Parameter.ImageHeight
-			// }
 			//to handle data race condition by passing a copy of world to goroutines
 			mutex.Lock()
 			worldCopy := copySlice(s.World)
@@ -73,7 +63,7 @@ func (s *Broker) ProcessWorld(req gol.Request, res *gol.Response) error {
 			go workers(req.Parameter, worldCopy, result, 0, req.Parameter.ImageHeight)
 			temp := <-result
 			req.World = copySlice(temp)
-			//}
+
 		}
 		mutex.Lock()
 		s.World = copySlice(req.World)
@@ -113,8 +103,6 @@ func (s *Broker) KeyGol(req gol.Request, res *gol.Response) error {
 		}
 	} else if req.K {
 		var wg sync.WaitGroup
-		// node quit
-		// wg.Add(1)
 		for i, server := range servers {
 			wg.Add(1)
 			client, err := rpc.Dial("tcp", server)
@@ -176,48 +164,8 @@ func nextState(p gol.Params, world [][]byte, start, end int) [][]byte {
 }
 
 func workers(p gol.Params, world [][]byte, result chan<- [][]byte, start, end int) {
-	fmt.Println("go worker")
+	//fmt.Println("go worker")
 	worldPiece := copySlice(world)
-	// server1 := "127.0.0.1:8040"
-	// client1, _ := rpc.Dial("tcp", server1)
-	// server2 := "127.0.0.1:8051"
-	// client2, _ := rpc.Dial("tcp", server2)
-	// defer client1.Close()
-	// defer client2.Close()
-	// // req := new(gol.Request)
-	// // req.World = copySlice(world)
-	// // req.Start = 0
-	// // req.End = p.ImageHeight
-	// // req.Parameter = p
-	// // res := new(gol.Response)
-	// // client1.Call(gol.ProcessGol, req, res)
-	// // worldPiece = copySlice(res.World)
-	// req := new(gol.Request)
-	// req.World = copySlice(world)
-	// req.Start = 0 * (p.ImageHeight / 2)
-	// req.End = 1 * (p.ImageHeight / 2)
-	// req.Parameter = p
-	// res := new(gol.Response)
-	// client1.Call(gol.ProcessGol, req, res)
-	// for i := 0; i < req.End; i++ {
-	// 	copy(worldPiece[i], res.World[i])
-	// }
-	// req2 := new(gol.Request)
-	// req2.World = copySlice(world)
-	// req2.Start = 1 * (p.ImageHeight / 2)
-	// req2.End = 2 * (p.ImageHeight / 2)
-	// req2.Parameter = p
-	// res2 := new(gol.Response)
-	// client2.Call(gol.ProcessGol, req2, res2)
-	// for i := req2.Start; i < req2.End; i++ {
-	// 	copy(worldPiece[i], res2.World[i-req2.Start])
-	// }
-	// servers := []string{
-	// 	"127.0.0.1:8040",
-	// 	"127.0.0.1:8051",
-	// 	// "127.0.0.1:8052",
-	// 	// "127.0.0.1:8053",
-	// }
 	//clients := make([]*rpc.Client, len(servers))
 	for i, server := range servers {
 		client, err := rpc.Dial("tcp", server)
@@ -249,7 +197,6 @@ func workers(p gol.Params, world [][]byte, result chan<- [][]byte, start, end in
 			copy(worldPiece[j], res.World[j-req.Start])
 		}
 	}
-	//worldPiece := nextState(p, world, start, end)
 	result <- worldPiece
 	close(result)
 }

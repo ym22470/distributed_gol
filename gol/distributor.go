@@ -5,6 +5,8 @@ import (
 	"net/rpc"
 	"sync"
 	"time"
+
+	"uk.ac.bris.cs/gameoflife/util"
 )
 
 type distributorChannels struct {
@@ -18,7 +20,6 @@ type distributorChannels struct {
 }
 
 func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannels) {
-	//resume := make(chan bool)
 	var mutex sync.Mutex
 	pasued := false
 	kill := false
@@ -32,8 +33,6 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 			mutex.Lock()
 			if !pasued && !kill {
 				mutex.Unlock()
-				//requestCell := Request{World: world, Parameter: p}
-				//responseCell := new(Response)
 				mutex.Lock()
 				err := client.Call(BrokerAliveCells, request, response)
 				if err != nil {
@@ -47,6 +46,32 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 
 		}
 	}()
+
+	// newTicker := time.NewTicker(2 * time.Millisecond)
+	// defer newTicker.Stop()
+	// oldWorld := copySlice(world)
+	// go func() {
+	// 	for range newTicker.C {
+	// 		request := Request{World: oldWorld}
+	// 		err := client.Call(Live, request, response)
+	// 		defer client.Close()
+	// 		if err != nil {
+	// 			fmt.Println(err)
+	// 		}
+	// 		for j := 0; j < p.ImageHeight; j++ {
+	// 			for k := 0; k < p.ImageWidth; k++ {
+	// 				if oldWorld[j][k] != response.World[j][k] {
+	// 					//fmt.Println(response.Turns)
+	// 					mutex.Lock()
+	// 					//fmt.Println(k, j)
+	// 					c.events <- CellFlipped{CompletedTurns: response.Turns, Cell: util.Cell{X: k, Y: j}}
+	// 					mutex.Unlock()
+	// 				}
+	// 			}
+	// 		}
+	// 		oldWorld = copySlice(response.World)
+	// 	}
+	// }()
 
 	quit := make(chan bool)
 	go func() {
@@ -123,10 +148,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 		}
 	}()
 	client.Call(BrokerGol, request, response)
-	//fmt.Println(len(response.World))
 	world = copySlice(response.World)
-
-	// response.World = copySlice(world)
 	//send the content of world and receive on the other side(writePgm) concurrently
 	c.ioCommand <- ioOutput
 	// Since the output here is only required when the turns are ran out, so doesn't need the ticker anymore
@@ -136,12 +158,12 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 	c.ioFilename <- fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, p.Turns)
 	//send the completed world to ioOutput c
 	mutex.Lock()
-	// fmt.Println(len(response.World[0]))
 	for i := 0; i < p.ImageHeight; i++ {
 		for j := 0; j < p.ImageWidth; j++ {
 			c.ioOutput <- world[i][j]
 		}
 	}
+	c.events <- ImageOutputComplete{CompletedTurns: p.Turns, Filename: fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, p.Turns)}
 	mutex.Unlock()
 
 	//report the final state of the world
@@ -149,10 +171,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 	c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
 	mutex.Unlock()
 	// Make sure that the Io has finished any output before exiting.
-	//fmt.Println("send complete")
 	c.ioCommand <- ioCheckIdle
-	//fmt.Println("send complete")
-	//fmt.Println(len(response.AliveCells))
 
 	<-c.ioIdle
 	c.events <- StateChange{response.CompletedTurns, Quitting}
@@ -180,6 +199,7 @@ func distributor(p Params, c distributorChannels) {
 
 	//create a client that dials to the tcp port
 	client, _ := rpc.Dial("tcp", broker)
+
 	//close dial when everything is excuted
 	defer func(client *rpc.Client) {
 		err := client.Close()
@@ -188,7 +208,22 @@ func distributor(p Params, c distributorChannels) {
 		}
 	}(client)
 
-	//fmt.Println("create a new world here")
+	//Listen to broker
+	// dist := new(Client)
+	// rpc.Register(dist)
+	// pAddr := flag.String("port", "8060", "port to listen on")
+	// flag.Parse()
+	// listener, _ := net.Listen("tcp", ":"+*pAddr)
+	// defer func(listener net.Listener) {
+	// 	err := listener.Close()
+	// 	if err != nil {
+
+	// 	}
+	// }(listener)
+	// go func() {
+	// 	rpc.Accept(listener)
+	// }()
+
 	//create an empty world slice
 	world := make([][]byte, p.ImageHeight)
 	for i := range world {
@@ -199,6 +234,9 @@ func distributor(p Params, c distributorChannels) {
 	for y := 0; y < p.ImageHeight; y++ {
 		for x := 0; x < p.ImageWidth; x++ {
 			world[y][x] = <-c.ioInput
+			if world[y][x] == 255 {
+				c.events <- CellFlipped{0, util.Cell{X: x, Y: y}}
+			}
 		}
 	}
 
