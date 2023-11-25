@@ -86,7 +86,7 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 			// Wait for all goroutines to complete
 			wg.Wait()
 			// Now that all goroutines have completed, you can proceed
-			// Assemble all the strips together
+			// Assemble all the strips together, replace the initial world with the completed world
 			b.CombinedWorld = req.World
 			for i := 0; i < b.Nodes; i++ {
 				fmt.Println("inside loop")
@@ -94,8 +94,14 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 				fmt.Println(len(responses))
 				strip := responses[i]
 				startRow := i * (req.Parameter.ImageHeight / b.Nodes)
+				fmt.Println(len(strip))
 				for r, row := range strip {
 					mutex.Lock()
+					//fmt.Println(len(strip))
+					//fmt.Println(len(req.World))
+					//fmt.Println(len(b.CombinedWorld))
+					fmt.Println(startRow)
+					fmt.Println(r)
 					b.CombinedWorld[startRow+r] = row
 					mutex.Unlock()
 				}

@@ -15,124 +15,104 @@ var mutex sync.Mutex
 
 // Create a RPC service that contains various
 type Server struct {
-	Turn      int
-	CellCount int
-	Resume    chan bool
-	Pause     bool
-	World     [][]byte
-	Slice     [][]byte
+	Turn          int
+	CellCount     int
+	Resume        chan bool
+	Pause         bool
+	World         [][]byte
+	Slice         [][]byte
+	CombinedSlice [][]byte
 }
 
 func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
-	//fmt.Println(req.Parameter.Turns)
 	s.Turn = 0
 	s.Resume = make(chan bool)
 	mutex.Lock()
 	s.World = copySlice(req.World)
 	mutex.Unlock()
-	//fmt.Println("turn completed")
-	//fmt.Println(req.Parameter.Turns)
 	// TODO: Execute all turns of the Game of Life.
-	fmt.Println(len(req.World[0]) + 3)
-	if req.Parameter.Turns > 0 {
+	if req.Parameter.Threads == 1 {
 		fmt.Println("if statement")
-		fmt.Println(req.Parameter.Turns)
-		fmt.Println(req.Start)
-		fmt.Println(req.End)
+		chans := make(chan [][]byte)
 		mutex.Lock()
-		if s.Pause {
-			mutex.Unlock()
-			<-s.Resume
-		} else {
-			mutex.Unlock()
-		}
-		if req.Parameter.Threads == 1 {
-			chans := make(chan [][]byte)
-			mutex.Lock()
-			//fmt.Println(len(req.World[0]) + 2)
-			worldCopy := copySlice(s.World)
-			//fmt.Println(len(worldCopy[0]) + 1)
-			mutex.Unlock()
-			go workers(req.Parameter, worldCopy, chans, req.Start, req.End)
-			fmt.Println("turn completed")
-			strip := <-chans
-			//fmt.Println("turn completed")
-			mutex.Lock()
-			//fmt.Println(len(strip[0]))
-			s.Slice = copySlice(strip)
-			mutex.Unlock()
-			//fmt.Println("turn completed")
-			//count the number of cells and turns
-			mutex.Lock()
-			//s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
-			s.Turn++
-			mutex.Unlock()
-			//}
-		} else {
-			sliceHeight := req.End - req.Start
-			chans := make([]chan [][]byte, req.Parameter.Threads)
-			for i := 0; i < req.Parameter.Threads; i++ {
-				chans[i] = make(chan [][]byte)
-				// calculate the starting and ending point of the slice
-				a := i * (sliceHeight / req.Parameter.Threads)
-				b := (i + 1) * (sliceHeight / req.Parameter.Threads)
-				// in case of incomplete division, set the ending point of the last thread to the last line
-				if i == req.Parameter.Threads-1 {
-					b = sliceHeight
-				}
-				//to handle data race condition by passing a copy of world to goroutines
-				mutex.Lock()
-				worldCopy := copySlice(s.World)
-				mutex.Unlock()
-				go workers(req.Parameter, worldCopy, chans[i], a, b)
-
-			}
-			//combine all the strips produced by workers
-			for i := 0; i < req.Parameter.Threads; i++ {
-				strip := <-chans[i]
-				startRow := i * (sliceHeight / req.Parameter.Threads)
-				for r, row := range strip {
-					mutex.Lock()
-					//replace each line of the old world by a new row
-					req.World[startRow+r] = row
-					mutex.Unlock()
-				}
-			}
-			mutex.Lock()
-			//copy the top slice to s.Slice
-			s.Slice = copySlice(req.World[0:req.Parameter.Threads])
-			mutex.Unlock()
-			mutex.Lock()
-			//s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
-			s.Turn++
-			mutex.Unlock()
-		}
+		worldCopy := copySlice(s.World)
+		mutex.Unlock()
+		go workers(req.Parameter, worldCopy, chans, req.Start, req.End)
+		strip := <-chans
+		mutex.Lock()
+		s.Slice = copySlice(strip)
+		fmt.Println(len(s.Slice))
+		mutex.Unlock()
+		mutex.Lock()
+		s.Turn++
+		mutex.Unlock()
 	} else {
-		if s.Pause {
-			mutex.Unlock()
-			<-s.Resume
-		} else {
-			mutex.Unlock()
-		}
 		fmt.Println("else statement")
-		fmt.Println(req.Start)
-		fmt.Println(req.End)
-		s.Slice = req.World[req.Start:req.End]
+		sliceHeight := req.End - req.Start
+		//Threads in each node
+		var numThreads int
+		if len(req.World) == 16 && len(req.World[0]) == 16 {
+			numThreads = 4
+		} else {
+			numThreads = req.Parameter.Threads
+		}
+		//else if req.Parameter.Threads%4 == 0 {
+		//	numThreads := req.Parameter.Threads / 4
+		//}
+		chans := make([]chan [][]byte, numThreads)
+		for i := 0; i < numThreads; i++ {
+			chans[i] = make(chan [][]byte)
+			// calculate the starting and ending point of the slice
+			a := req.Start + i*(sliceHeight/numThreads)
+			b := req.Start + (i+1)*(sliceHeight/numThreads)
+			// in case of incomplete division, set the ending point of the last thread to the last line
+			if i == numThreads-1 {
+				b = req.Start + sliceHeight
+			}
+			//to handle data race condition by passing a copy of world to goroutines
+			mutex.Lock()
+			worldCopy := copySlice(s.World)
+			mutex.Unlock()
+			go workers(req.Parameter, worldCopy, chans[i], a, b)
+
+		}
+		s.CombinedSlice = copySlice(s.World)
+		//combine all the strips produced by workers
+		for i := 0; i < numThreads; i++ {
+			strip := <-chans[i]
+			startRow := i * (sliceHeight / numThreads)
+			for r, row := range strip {
+				mutex.Lock()
+				//fmt.Println("heeeeeeeeeo")
+				//fmt.Println(startRow + r)
+				//fmt.Println(sliceHeight)
+				//replace each line of the old world by a new row
+				s.CombinedSlice[startRow+r] = row
+				mutex.Unlock()
+			}
+		}
+		mutex.Lock()
+		//copy the top slice to s.Slice
+		s.Slice = copySlice(s.CombinedSlice[0:sliceHeight])
+		fmt.Println("heeeeeeeeeeeo")
+		fmt.Println(len(s.Slice))
+		mutex.Unlock()
 		mutex.Lock()
 		//s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
+		s.Turn++
 		mutex.Unlock()
 	}
-	//case when the resquest turn is 0
-
+	fmt.Println("done")
 	fmt.Println(len(req.World))
 	fmt.Println(len(req.World[0]) + 4)
 	//send the finished world and AliveCells to respond
 	mutex.Lock()
 	fmt.Println(len(s.Slice))
 	res.Slice = s.Slice
+	fmt.Println(len(calculateAliveCells(req.Parameter, res.Slice)))
 	//datarace here, need mutex lock
 	//res.AliveCells = calculateAliveCells(req.Parameter, s.Slice)
-	fmt.Println(len(res.AliveCells))
+	//fmt.Println(len(res.AliveCells))
 	//res.CompletedTurns++
 	mutex.Unlock()
 	return nil
@@ -192,7 +172,7 @@ func workers(p gol.Params, world [][]byte, result chan<- [][]byte, start, end in
 	fmt.Println("worker")
 	result <- worldPiece
 	fmt.Println("state updated")
-	//close(result)
+	close(result)
 }
 func copySlice(src [][]byte) [][]byte {
 	dst := make([][]byte, len(src))
