@@ -32,7 +32,6 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 	mutex.Unlock()
 	// TODO: Execute all turns of the Game of Life.
 	if req.Parameter.Threads == 1 {
-		fmt.Println("if statement")
 		chans := make(chan [][]byte)
 		mutex.Lock()
 		worldCopy := copySlice(s.World)
@@ -41,13 +40,11 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 		strip := <-chans
 		mutex.Lock()
 		s.Slice = copySlice(strip)
-		fmt.Println(len(s.Slice))
 		mutex.Unlock()
 		mutex.Lock()
 		s.Turn++
 		mutex.Unlock()
 	} else {
-		fmt.Println("else statement")
 		sliceHeight := req.End - req.Start
 		//Threads in each node
 		var numThreads int
@@ -56,9 +53,6 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 		} else {
 			numThreads = req.Parameter.Threads
 		}
-		//else if req.Parameter.Threads%4 == 0 {
-		//	numThreads := req.Parameter.Threads / 4
-		//}
 		chans := make([]chan [][]byte, numThreads)
 		for i := 0; i < numThreads; i++ {
 			chans[i] = make(chan [][]byte)
@@ -83,9 +77,6 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 			startRow := i * (sliceHeight / numThreads)
 			for r, row := range strip {
 				mutex.Lock()
-				//fmt.Println("heeeeeeeeeo")
-				//fmt.Println(startRow + r)
-				//fmt.Println(sliceHeight)
 				//replace each line of the old world by a new row
 				s.CombinedSlice[startRow+r] = row
 				mutex.Unlock()
@@ -94,26 +85,14 @@ func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
 		mutex.Lock()
 		//copy the top slice to s.Slice
 		s.Slice = copySlice(s.CombinedSlice[0:sliceHeight])
-		fmt.Println("heeeeeeeeeeeo")
-		fmt.Println(len(s.Slice))
 		mutex.Unlock()
 		mutex.Lock()
-		//s.CellCount = len(calculateAliveCells(req.Parameter, s.Slice))
 		s.Turn++
 		mutex.Unlock()
 	}
-	fmt.Println("done")
-	fmt.Println(len(req.World))
-	fmt.Println(len(req.World[0]) + 4)
 	//send the finished world and AliveCells to respond
 	mutex.Lock()
-	fmt.Println(len(s.Slice))
 	res.Slice = s.Slice
-	fmt.Println(len(calculateAliveCells(req.Parameter, res.Slice)))
-	//datarace here, need mutex lock
-	//res.AliveCells = calculateAliveCells(req.Parameter, s.Slice)
-	//fmt.Println(len(res.AliveCells))
-	//res.CompletedTurns++
 	mutex.Unlock()
 	return nil
 }
