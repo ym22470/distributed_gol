@@ -90,9 +90,6 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 						}
 					}
 				case 'q':
-					// requestkey := Request{Q: true}
-					// TODO: q function
-					// client.Call(Key, requestkey, response)
 					c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
 					c.ioCommand <- ioCheckIdle
 					<-c.ioIdle
@@ -204,22 +201,6 @@ func distributor(p Params, c distributorChannels) {
 
 		}
 	}(client)
-
-	//Listen to broker
-	// dist := new(Client)
-	// rpc.Register(dist)
-	// pAddr := flag.String("port", "8060", "port to listen on")
-	// flag.Parse()
-	// listener, _ := net.Listen("tcp", ":"+*pAddr)
-	// defer func(listener net.Listener) {
-	// 	err := listener.Close()
-	// 	if err != nil {
-
-	// 	}
-	// }(listener)
-	// go func() {
-	// 	rpc.Accept(listener)
-	// }()
 
 	//create an empty world slice
 	world := make([][]byte, p.ImageHeight)

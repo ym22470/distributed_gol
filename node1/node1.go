@@ -23,8 +23,6 @@ type Server struct {
 }
 
 func (s *Server) ProcessWorld(req gol.Request, res *gol.Response) error {
-	//fmt.Println("Into PW in node 3")
-	//worldPiece := nextState(req.Parameter, req.World, req.Start, req.End)
 	worldPiece := nextState(req.Parameter, req.World, 1, req.End-req.Start)
 	res.World = make([][]byte, req.End-req.Start)
 	for i := range res.World {
@@ -99,7 +97,7 @@ func copySlice(src [][]byte) [][]byte {
 }
 
 func main() {
-	fmt.Println("Node3")
+	fmt.Println("Node1")
 	pAddr := flag.String("port", "8040", "port to listen on")
 	flag.Parse()
 	//initialise server

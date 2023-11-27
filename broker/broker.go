@@ -18,8 +18,8 @@ var servers = []string{
 	// "34.201.147.188:8030",
 	"127.0.0.1:8051",
 	// "54.242.29.84:8030",
-	// "127.0.0.1:8052",
-	// "127.0.0.1:8053",
+	"127.0.0.1:8052",
+	"127.0.0.1:8053",
 }
 var clients = make([]*rpc.Client, len(servers))
 
@@ -71,7 +71,7 @@ func (s *Broker) ProcessWorld(req gol.Request, res *gol.Response) error {
 		s.Turn++
 		mutex.Unlock()
 	}
-	//send the finished world and AliveCells to respond
+	// Send the finished world and AliveCells to respond
 	mutex.Lock()
 	res.World = copySlice(s.World)
 	res.AliveCells = calculateAliveCells(req.Parameter, res.World)
@@ -119,9 +119,11 @@ func (s *Broker) KeyGol(req gol.Request, res *gol.Response) error {
 				defer client.Close()
 			}
 			clients[i] = client
-			client.Call(gol.Shutdown, new(gol.Request), new(gol.Response))
-			defer client.Close()
-			wg.Done()
+			go func() {
+				client.Call(gol.Shutdown, new(gol.Request), new(gol.Response))
+				defer client.Close()
+				wg.Done()
+			}()
 		}
 		wg.Wait()
 		os.Exit(0)
@@ -172,9 +174,8 @@ func nextState(p gol.Params, world [][]byte, start, end int) [][]byte {
 }
 
 func workers(p gol.Params, world [][]byte, result chan<- [][]byte, start, end int) {
-	//fmt.Println("go worker")
 	worldPiece := copySlice(world)
-	//clients := make([]*rpc.Client, len(servers))
+	var wg sync.WaitGroup
 	for i, server := range servers {
 		client, err := rpc.Dial("tcp", server)
 		if err != nil {
@@ -187,12 +188,9 @@ func workers(p gol.Params, world [][]byte, result chan<- [][]byte, start, end in
 	for i, client := range clients {
 		req := new(gol.Request)
 		req.Parameter = p
-		//req.World = copySlice(world)
 		haloSize := p.ImageHeight / len(clients)
 		req.Start = i * haloSize
 		req.End = (i + 1) * haloSize
-		// req.Start = 1
-		// req.End = haloSize
 		if i == len(clients)-1 {
 			req.End = p.ImageHeight
 		}
@@ -221,18 +219,20 @@ func workers(p gol.Params, world [][]byte, result chan<- [][]byte, start, end in
 		}
 		req.Parameter = p
 
+		wg.Add(1)
 		res := new(gol.Response)
-		err := client.Call(gol.ProcessGol, req, res)
-		defer client.Close()
-		if err != nil {
-			log.Fatalf("Failed to process world: %v", err)
-		}
+		go func(req *gol.Request, res *gol.Response) {
+			err := client.Call(gol.ProcessGol, req, res)
+			defer client.Close()
+			if err != nil {
+				log.Fatalf("Failed to process world: %v", err)
+			}
+			wg.Done()
+		}(req, res)
 
+		wg.Wait()
 		// Get rid of the halo rows
 		for j := req.Start; j < req.End; j++ {
-			// fmt.Println("res: ", res.World[j-req.Start])
-			// fmt.Println(j)
-			// fmt.Println("piece: ", worldPiece[j])
 			copy(worldPiece[j], res.World[j-req.Start])
 		}
 	}

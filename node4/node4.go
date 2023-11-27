@@ -97,8 +97,8 @@ func copySlice(src [][]byte) [][]byte {
 }
 
 func main() {
-	fmt.Println("Node2")
-	pAddr := flag.String("port", "8051", "port to listen on")
+	fmt.Println("Node4")
+	pAddr := flag.String("port", "8053", "port to listen on")
 	flag.Parse()
 	//initialise server
 	server := &Server{
