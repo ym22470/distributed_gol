@@ -148,6 +148,14 @@ func (b *Broker) GolAliveCells(req gol.Request, res *gol.Response) error {
 	return nil
 }
 
+func (b *Broker) GetLive(req gol.Request, res *gol.Response) error {
+	mutex.Lock()
+	res.World = b.CombinedWorld
+	res.Turns = b.Turn
+	mutex.Unlock()
+	return nil
+}
+
 func (b *Broker) GolKey(req gol.Request, res *gol.Response) error {
 	if req.S {
 		mutex.Lock()

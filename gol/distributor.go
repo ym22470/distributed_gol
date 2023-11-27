@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 	"time"
+	"uk.ac.bris.cs/gameoflife/util"
 )
 
 var wg sync.WaitGroup
@@ -47,6 +48,29 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 			} else {
 				mutex.Unlock()
 			}
+		}
+	}()
+
+	newTicker := time.NewTicker(50 * time.Millisecond)
+	defer newTicker.Stop()
+	oldWorld := copySlice(world)
+	go func() {
+		for range newTicker.C {
+			request := Request{World: oldWorld}
+			err := client.Call(Live, request, response)
+			defer client.Close()
+			if err != nil {
+				fmt.Println(err)
+			}
+			for j := 0; j < p.ImageHeight; j++ {
+				for k := 0; k < p.ImageWidth; k++ {
+					if oldWorld[j][k] != response.World[j][k] {
+						c.events <- CellFlipped{CompletedTurns: response.Turns, Cell: util.Cell{X: k, Y: j}}
+					}
+				}
+			}
+			c.events <- TurnComplete{response.Turns}
+			oldWorld = copySlice(response.World)
 		}
 	}()
 
@@ -168,8 +192,6 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 		<-c.ioIdle
 		c.events <- StateChange{response.Turns, Quitting}
 
-		// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
-		close(c.events)
 	} else {
 		mutex.Lock()
 		c.events <- FinalTurnComplete{CompletedTurns: response.Turns, Alive: response.AliveCells}
@@ -183,9 +205,17 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 		<-c.ioIdle
 		c.events <- StateChange{response.Turns, Quitting}
 
-		// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
-		close(c.events)
 	}
+	// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
+	close(c.events)
+}
+func copySlice(src [][]byte) [][]byte {
+	dst := make([][]byte, len(src))
+	for i := range src {
+		dst[i] = make([]byte, len(src[i]))
+		copy(dst[i], src[i])
+	}
+	return dst
 }
 
 func distributor(p Params, c distributorChannels) {
@@ -217,7 +247,11 @@ func distributor(p Params, c distributorChannels) {
 	for y := 0; y < p.ImageHeight; y++ {
 		for x := 0; x < p.ImageWidth; x++ {
 			world[y][x] = <-c.ioInput
+			if world[y][x] == 255 {
+				c.events <- CellFlipped{CompletedTurns: 0, Cell: util.Cell{X: x, Y: y}}
+			}
 		}
 	}
+
 	makeCall(client, world, p, c)
 }
