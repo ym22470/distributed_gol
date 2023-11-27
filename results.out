@@ -1,0 +1,10 @@
+goos: linux
+goarch: amd64
+pkg: uk.ac.bris.cs/gameoflife
+cpu: AMD Ryzen 7 5800H with Radeon Graphics         
+BenchmarkGol/512x512x1000-1-16         	       1	12178520436 ns/op
+BenchmarkGol/512x512x1000-1-16         	       1	12976642644 ns/op
+BenchmarkGol/512x512x1000-1-16         	       1	12247136953 ns/op
+BenchmarkGol/512x512x1000-1-16         	       1	12558861372 ns/op
+BenchmarkGol/512x512x1000-1-16         	       1	12956574904 ns/op
+ok  	uk.ac.bris.cs/gameoflife	124.925s
