@@ -21,6 +21,10 @@ var servers = []string{
 	"127.0.0.1:8052",
 	"127.0.0.1:8053",
 }
+var backupServers = []string{
+	"127.0.0.1:8054",
+	"127.0.0.1:8055",
+}
 var clients = make([]*rpc.Client, len(servers))
 
 // Create a RPC service that contains various

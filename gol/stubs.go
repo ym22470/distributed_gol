@@ -33,7 +33,5 @@ type Request struct {
 	Start     int
 	End       int
 	Turn      int
-	OldWorld  [][]byte
-	NewWorld  [][]byte
 	Cell      util.Cell
 }
