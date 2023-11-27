@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"log"
+	"fmt"
 	"net"
 	"net/rpc"
 	"os"
@@ -23,8 +23,8 @@ var servers = []string{
 }
 var backupServers = []string{
 	"127.0.0.1:8054",
-	"127.0.0.1:8055",
 }
+var numOfBackup int
 var clients = make([]*rpc.Client, len(servers))
 
 // Create a RPC service that contains various
@@ -119,8 +119,18 @@ func (s *Broker) KeyGol(req gol.Request, res *gol.Response) error {
 			wg.Add(1)
 			client, err := rpc.Dial("tcp", server)
 			if err != nil {
-				log.Fatalf("Failed to connect to server %s: %v", server, err)
+				// If the client is not longer available, skip
 				defer client.Close()
+				for _, backupServer := range backupServers {
+					wg.Add(1)
+					backupClient, _ := rpc.Dial("tcp", backupServer)
+					go func() {
+						backupClient.Call(gol.Shutdown, new(gol.Request), new(gol.Response))
+						defer backupClient.Close()
+						wg.Done()
+					}()
+				}
+				continue
 			}
 			clients[i] = client
 			go func() {
@@ -183,10 +193,21 @@ func workers(p gol.Params, world [][]byte, result chan<- [][]byte, start, end in
 	for i, server := range servers {
 		client, err := rpc.Dial("tcp", server)
 		if err != nil {
-			log.Fatalf("Failed to connect to server %s: %v", server, err)
+			for j, backupServer := range backupServers {
+				backupClient, err := rpc.Dial("tcp", backupServer)
+				if err != nil {
+					fmt.Printf("Backup Server %d failed", j)
+					// Move onto the next server
+					continue
+				}
+				defer backupClient.Close()
+				clients[i] = backupClient
+				break
+			}
+		} else {
+			defer client.Close()
+			clients[i] = client
 		}
-		defer client.Close()
-		clients[i] = client
 	}
 	// Process the world in pieces
 	for i, client := range clients {
@@ -229,7 +250,22 @@ func workers(p gol.Params, world [][]byte, result chan<- [][]byte, start, end in
 			err := client.Call(gol.ProcessGol, req, res)
 			defer client.Close()
 			if err != nil {
-				log.Fatalf("Failed to process world: %v", err)
+				if numOfBackup == len(backupServers) {
+					// If all backup nodes are used up, exit
+					os.Exit(0)
+				}
+				for j, backupServer := range backupServers {
+					backupClient, err := rpc.Dial("tcp", backupServer)
+					if err != nil {
+						fmt.Printf("Backup Server %d failed", j)
+						continue
+					}
+					defer backupClient.Close()
+					numOfBackup++
+					clients[i] = backupClient
+					backupClient.Call(gol.ProcessGol, req, res)
+					break
+				}
 			}
 			wg.Done()
 		}(req, res)
@@ -267,6 +303,8 @@ func calculateAliveCells(p gol.Params, world [][]byte) []util.Cell {
 func main() {
 	pAddr := flag.String("port", "8030", "port to listen on")
 	flag.Parse()
+
+	numOfBackup = 0
 	//initialise server
 	server := &Broker{
 		Resume:    make(chan bool),
