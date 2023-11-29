@@ -6,7 +6,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
@@ -127,7 +126,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 					if pasued {
 						c.events <- StateChange{response.Turns, Paused}
 					} else {
-						fmt.Println("Continuing")
+						//fmt.Println("Continuing")
 						c.events <- StateChange{response.Turns, Executing}
 					}
 				case 'k':
@@ -152,7 +151,6 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 					c.ioCommand <- ioCheckIdle
 					<-c.ioIdle
 					c.events <- StateChange{response.Turns, Quitting}
-					fmt.Println("reached end")
 					wg.Done()
 					quit <- true
 					os.Exit(0)
@@ -184,7 +182,6 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 		}
 		//send the completed world to ioOutput c
 		mutex.Lock()
-		//fmt.Println(len(response.World[0]))
 		for i := 0; i < p.ImageHeight; i++ {
 			for j := 0; j < p.ImageWidth; j++ {
 				c.ioOutput <- response.World[i][j]
@@ -196,6 +193,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 		mutex.Lock()
 		c.events <- FinalTurnComplete{CompletedTurns: response.Turns, Alive: response.AliveCells}
 		mutex.Unlock()
+		c.events <- ImageOutputComplete{CompletedTurns: p.Turns, Filename: fmt.Sprintf("%vx%vx%v", p.ImageHeight, p.ImageWidth, p.Turns)}
 		// Make sure that the Io has finished any output before exiting.
 		c.ioCommand <- ioCheckIdle
 
