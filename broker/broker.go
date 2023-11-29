@@ -180,10 +180,14 @@ func (b *Broker) GolKey(req gol.Request, res *gol.Response) error {
 
 func main() {
 	addresses := []string{
-		"127.0.0.1:8040",
-		"127.0.0.1:8050",
-		"127.0.0.1:8060",
-		"127.0.0.1:8070",
+		//"127.0.0.1:8040",
+		//"127.0.0.1:8050",
+		//"127.0.0.1:8060",
+		//"127.0.0.1:8070",
+		"54.209.119.86:8030",
+		//"100.25.188.63:8050",
+		//"3.86.165.22:8060",
+		//"3.80.204.84:8070",
 	}
 	clients := make([]*rpc.Client, 4)
 	for n := 0; n < 4; n++ {
@@ -200,7 +204,7 @@ func main() {
 	if err != nil {
 		return
 	}
-	pAddr := flag.String("port", "8030", "port to listen on")
+	pAddr := flag.String("port", "8080", "port to listen on")
 	//create a listener to listen to the distributor on the port
 	listener, _ := net.Listen("tcp", ":"+*pAddr)
 	defer listener.Close()

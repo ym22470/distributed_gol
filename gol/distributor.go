@@ -229,7 +229,7 @@ func distributor(p Params, c distributorChannels) {
 	c.ioFilename <- fmt.Sprintf("%vx%v", p.ImageHeight, p.ImageWidth)
 
 	// Do remember to modify this ip address
-	broker := "127.0.0.1:8030"
+	broker := "127.0.0.1:8080"
 	//server := "54.224.85.190:8030"
 
 	//create a client that dials to the tcp port
