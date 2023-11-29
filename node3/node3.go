@@ -2,11 +2,11 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"net"
 	"net/rpc"
 	"os"
 	"sync"
+
 	"uk.ac.bris.cs/gameoflife/gol"
 	"uk.ac.bris.cs/gameoflife/util"
 )
@@ -148,9 +148,7 @@ func nextState(p gol.Params, world [][]byte, start, end int) [][]byte {
 
 func workers(p gol.Params, world [][]byte, result chan<- [][]byte, start, end int) {
 	worldPiece := nextState(p, world, start, end)
-	fmt.Println("worker")
 	result <- worldPiece
-	fmt.Println("state updated")
 	close(result)
 }
 func copySlice(src [][]byte) [][]byte {

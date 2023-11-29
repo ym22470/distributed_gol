@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 	"time"
+
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
@@ -194,10 +195,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 		c.events <- FinalTurnComplete{CompletedTurns: response.Turns, Alive: response.AliveCells}
 		mutex.Unlock()
 		// Make sure that the Io has finished any output before exiting.
-		fmt.Println("send complete")
 		c.ioCommand <- ioCheckIdle
-		fmt.Println("send complete")
-		fmt.Println(len(response.AliveCells))
 
 		<-c.ioIdle
 		c.events <- StateChange{response.Turns, Quitting}
@@ -207,10 +205,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 		c.events <- FinalTurnComplete{CompletedTurns: response.Turns, Alive: response.AliveCells}
 		mutex.Unlock()
 		// Make sure that the Io has finished any output before exiting.
-		fmt.Println("send complete")
 		c.ioCommand <- ioCheckIdle
-		fmt.Println("send complete")
-		fmt.Println(len(response.AliveCells))
 
 		<-c.ioIdle
 		c.events <- StateChange{response.Turns, Quitting}

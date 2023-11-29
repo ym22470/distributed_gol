@@ -2,11 +2,11 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"net"
 	"net/rpc"
 	"os"
 	"sync"
+
 	"uk.ac.bris.cs/gameoflife/gol"
 	"uk.ac.bris.cs/gameoflife/util"
 )
@@ -73,9 +73,7 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 
 					localRes := &gol.Response{} // Create a local response object
 
-					fmt.Println("Goroutine for start:", reqCopy.Start, "end:", reqCopy.End)
 					client.Call(gol.ProcessGol, reqCopy, localRes)
-					fmt.Println("RPC call completed for start:", reqCopy.Start, "end:", reqCopy.End)
 
 					mutex.Lock()
 					responses[i] = localRes.Slice
@@ -89,19 +87,13 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 			// Assemble all the strips together, replace the initial world with the completed world
 			b.CombinedWorld = req.World
 			for i := 0; i < b.Nodes; i++ {
-				fmt.Println("inside loop")
-				fmt.Println(b.Nodes)
-				fmt.Println(len(responses))
 				strip := responses[i]
 				startRow := i * (req.Parameter.ImageHeight / b.Nodes)
-				fmt.Println(len(strip))
 				for r, row := range strip {
 					mutex.Lock()
 					//fmt.Println(len(strip))
 					//fmt.Println(len(req.World))
 					//fmt.Println(len(b.CombinedWorld))
-					fmt.Println(startRow)
-					fmt.Println(r)
 					b.CombinedWorld[startRow+r] = row
 					mutex.Unlock()
 				}
