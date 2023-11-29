@@ -47,7 +47,6 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 			} else {
 				mutex.Unlock()
 			}
-			//b.CombinedAliveCells = []util.Cell{}
 			responses := make([][][]byte, len(b.Clients))
 			// Initialize each slice in responses to prevent index out of range error
 			for i := range responses {
@@ -90,9 +89,6 @@ func (b *Broker) GolInitializer(req gol.Request, res *gol.Response) error {
 				startRow := i * (req.Parameter.ImageHeight / b.Nodes)
 				for r, row := range strip {
 					mutex.Lock()
-					//fmt.Println(len(strip))
-					//fmt.Println(len(req.World))
-					//fmt.Println(len(b.CombinedWorld))
 					b.CombinedWorld[startRow+r] = row
 					mutex.Unlock()
 				}
@@ -166,9 +162,7 @@ func (b *Broker) GolKey(req gol.Request, res *gol.Response) error {
 			go func(client *rpc.Client) {
 				defer wg.Done()
 				client.Call(gol.Key, req, res)
-				//fmt.Println("key call finished")
 			}(client)
-			//fmt.Println("for loop")
 		}
 		//wait until all the goroutines finish( all the nodes to quit)
 		wg.Wait()
