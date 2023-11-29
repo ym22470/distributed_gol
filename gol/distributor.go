@@ -23,7 +23,6 @@ type distributorChannels struct {
 }
 
 func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannels) {
-	//resume := make(chan bool)
 	quitt := make(chan bool)
 	var mutex sync.Mutex
 	pasued := false
@@ -32,14 +31,11 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 	response := new(Response)
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
-	// responseCell := new(Response)
 	go func() {
 		for range ticker.C {
 			mutex.Lock()
 			if !pasued && !kill {
 				mutex.Unlock()
-				//requestCell := Request{World: world, Parameter: p}
-				//responseCell := new(Response)
 				mutex.Lock()
 				err := client.Call(BrokerAliveCells, request, response)
 				if err != nil {
@@ -82,8 +78,6 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 
 			}
 		}
-		// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
-		//close(c.events)
 	}()
 
 	quit := make(chan bool)
@@ -126,7 +120,6 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 					if pasued {
 						c.events <- StateChange{response.Turns, Paused}
 					} else {
-						//fmt.Println("Continuing")
 						c.events <- StateChange{response.Turns, Executing}
 					}
 				case 'k':
@@ -166,7 +159,6 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 	wg.Wait()
 	//if the specified last tern is finished, quit with output pgm
 	if response.End {
-		//fmt.Println(len(response.World))
 		//send the content of world and receive on the other side(writePgm) concurrently
 		c.ioCommand <- ioOutput
 		// Since the output here is only required when the turns are ran out, so doesn't need the ticker anymore
@@ -211,7 +203,7 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 		c.events <- StateChange{response.Turns, Quitting}
 
 	}
-	//// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
+	// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
 	quitt <- true
 	close(c.events)
 }
@@ -242,7 +234,6 @@ func distributor(p Params, c distributorChannels) {
 		}
 	}(client)
 
-	//fmt.Println("create a new world here")
 	//create an empty world slice
 	world := make([][]byte, p.ImageHeight)
 	for i := range world {
