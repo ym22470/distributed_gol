@@ -59,6 +59,8 @@ func makeCall(client *rpc.Client, world [][]byte, p Params, c distributorChannel
 	oldWorld := copySlice(world)
 	go func() {
 		for range newTicker.C {
+			//this sleep is essential to make sure that the goroutine doesn't run before the first call finished
+			time.Sleep(2 * time.Second)
 			select {
 			case <-quitt:
 				// Received a quit signal, exit the goroutine
